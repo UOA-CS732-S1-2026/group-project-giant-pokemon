@@ -1,35 +1,21 @@
 "use client";
 
-import { set } from "mongoose";
-import { setegid, title } from "process";
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import GoalForm from "@/components/goals/GoalForm";
+import GoalList from "@/components/goals/GoalList";
+import type { Goal, GoalAPI, GoalStatus } from "@/types/goal";
 
-// Define raw API response type for Goal
-type GoalAPI = {
-    _id: string;
-    title: string;
-    description?: string;
-    status: "active" | "completed";
-    targetDate?: string;
-    progress: number;
-    tags: string[];
-    createdAt: string;
-    updatedAt: string;
-};
-// Define a type for the Goal used in the React component, mapping _id to id
-type Goal = Omit<GoalAPI, "_id"> & { 
-    id: string;
-};
+
 
 export default function GoalsPage() {
     const [goals, setGoals] = useState<Goal[]>([]);
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
+    const [status, setStatus] = useState<"active" | "completed">("active");
+    const [progress, setProgress] = useState(0);
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(false);
     const [editingID, setEditingID] = useState<string | null>(null);
-    const [status, setStatus] = useState<"active" | "completed">("active");
-    const [progress, setProgress] = useState(0);
     const [error, setError] = useState("");
 
     // Fetch goals on component mount
@@ -100,12 +86,8 @@ export default function GoalsPage() {
                 console.error("Error creating goal:", result.error || res.statusText);
             }
             
-            // Clear form fields
-            setTitle("");
-            setDescription("");
-            setStatus("active");
-            setProgress(0);
-            setEditingID(null);
+            
+            handleCancelEdit();// Clear form fields
 
             await fetchGoals(); // Refresh the goals list
         } catch (err) {
@@ -159,123 +141,30 @@ export default function GoalsPage() {
         <main className="max-w-3xl mx-auto p-8">
             <h1 className="text-2xl font-bold mb-6">Goal Management</h1>
 
-            <form onSubmit={handleSubmit} className="border rounded p-4 mb-6 space-y-4">
-                <div>
-                    <label className="block font-medium mb-1" htmlFor="title">Title<span className="text-red-500">*</span></label>
-                    <input 
-                        className="w-full border rounded px-3 py-2"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        placeholder="Enter goal title"
-                    />
-                </div>
-                
-                <div>
-                    <label className="block font-medium mb-1" htmlFor="description">Description</label>
-                    <textarea 
-                        className="w-full border rounded px-3 py-2"
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Enter goal description (optional)"
-                    />
-                </div>
-
-                <div className="flex items-center gap-3">
-                    <button 
-                        type="submit" 
-                        className="rounded bg-black px-4 py-2 text-white disabled:opacity-50"
-                        disabled={loading}
-                    >
-                        {loading 
-                        ? editingID ? "Updating..." : "Creating..."
-                        : editingID ? "Update Goal" : "Create Goal"}
-                    </button>
-
-                    {editingID && (
-                        <button
-                            type="button"
-                            onClick={handleCancelEdit}
-                            className="rounded border px-4 py-2"
-                        >
-                            Cancel
-                        </button>
-                    )}
-                </div>
-
-                {error && <p className="text-red-500 mt-2">{error}</p>}
-            </form>
+            <GoalForm
+                title={title}
+                description={description}
+                status={status}
+                progress={progress}
+                loading={loading}
+                editingID={editingID}
+                error={error}
+                onTitleChange={setTitle}
+                onDescriptionChange={setDescription}
+                onStatusChange={setStatus}
+                onProgressChange={setProgress}
+                onSubmit={handleSubmit}
+                onCancelEdit={handleCancelEdit}
+            />  
 
             <section>
                 <h2 className="text-xl font-semibold mb-3">Your Goals</h2>
-
-                {fetching ? (
-                    <p>Loading goals...</p>
-                ) : goals.length === 0 ? (
-                    <p>No goals found. Start by creating one!</p>
-                ) : (
-                    <ul className="space-y-3">
-                        {goals.map((goal) => (
-                            <li key={goal.id} className="border rounded p-4">
-                                <div className="flex items-center justify-between gap-4">
-                                    <h3 className="font-semibold">{goal.title}</h3>
-                                    <span className="text-sm border rounded px-2 py-1">
-                                        {goal.status}
-                                    </span>
-                                </div>
-
-                                {goal.description && (
-                                   <p className="text-sm text-gray-600 mt-2">{goal.description}</p>
-                                )}
-
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Status</label>
-                                    <select className="w-full border rounded px-3 py-2"
-                                        value={goal.status}
-                                        onChange={(e) =>
-                                            setStatus(e.target.value as "active" | "completed")
-                                        }
-                                        >
-                                        <option value="active">Active</option>
-                                        <option value="completed">Completed</option>
-                                        </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Progress</label>
-                                    <input 
-                                        type="number"
-                                        min={0}
-                                        max={100}
-                                        className="w-full border rounded px-3 py-2"
-                                        value={progress}
-                                        onChange={(e) => setProgress(parseInt(e.target.value) || 0)}
-                                    />
-                                </div>
-
-                                <p className="text-sm mt-2">Progress: {goal.progress}%</p>
-
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => handleEdit(goal)}
-                                        className="rounded border px-3 py-1 text-sm"
-                                    >
-                                        Edit
-                                    </button>
-                                    <button 
-                                        onClick={() => {
-                                            if (confirm("Are you sure you want to delete this goal?")){
-                                            handleDelete(goal.id);
-                                            }
-                                        }}
-                                        className="rounded border px-3 py-1 text-sm"
-                                    >
-                                        Delete
-                                    </button>
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
-                )}
+                <GoalList
+                    goals={goals}
+                    fetching={fetching}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                />
             </section>
         </main>
     );
