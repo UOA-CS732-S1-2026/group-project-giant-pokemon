@@ -41,7 +41,7 @@ export default function LoginPage() {
         return;
       }
 
-      window.location.href = "/dashboard";
+      window.location.href = "/goals";
     } catch {
       setError("Something went wrong");
       triggerShake();
