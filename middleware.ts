@@ -30,5 +30,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/goals/:path*", "/tasks/:path*", "/schedule/:path*"],
+  matcher: ["/tasks/:path*", "/schedule/:path*"],
 };
