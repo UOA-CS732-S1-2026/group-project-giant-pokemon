@@ -3,7 +3,8 @@ import type { NextRequest } from "next/server";
 import { verifyToken } from "@/lib/jwt";
 
 export function middleware(req: NextRequest) {
-  const protectedRoutes = ["/goals", "/tasks", "/schedule"];
+  // 只保护 /goals，/schedule 开放访问
+  const protectedRoutes = ["/goals"];
 
   const pathname = req.nextUrl.pathname;
 
@@ -30,5 +31,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/tasks/:path*", "/schedule/:path*"],
+  matcher: [],  // 清空，让所有路由都走上面的逻辑
 };

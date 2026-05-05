@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import GoalForm from "@/components/goals/GoalForm";
 import GoalList from "@/components/goals/GoalList";
 import type { Goal, GoalAPI, GoalStatus } from "@/types/goal";
-
-
+import Navbar from "@/components/Navbar";
 
 export default function GoalsPage() {
     const [goals, setGoals] = useState<Goal[]>([]);
@@ -29,11 +28,10 @@ export default function GoalsPage() {
 
             if (!res.ok || !result.success) {
                 throw new Error(result.message || "Failed to fetch goals");
-                console.error("Error fetching goals:", result.error || res.statusText);
             }
             const mappedGoals: Goal[] = result.data.map((goal: GoalAPI) => ({
                 ...goal,
-                id: goal._id, // Map _id to id for easier use in React
+                id: goal._id,
             }));
             setGoals(mappedGoals);
             
@@ -49,7 +47,6 @@ export default function GoalsPage() {
     }, []);
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>){
-        // Prevent default form submission behavior
         e.preventDefault();
 
         if(!title.trim()){
@@ -83,13 +80,10 @@ export default function GoalsPage() {
 
             if (!res.ok || !result.success) {
                 throw new Error(result.message || "Failed to create goal");
-                console.error("Error creating goal:", result.error || res.statusText);
             }
             
-            
-            handleCancelEdit();// Clear form fields
-
-            await fetchGoals(); // Refresh the goals list
+            handleCancelEdit();
+            await fetchGoals();
         } catch (err) {
             setError(err instanceof Error ? err.message : String(err));
         } finally {
@@ -127,46 +121,46 @@ export default function GoalsPage() {
 
             if (!res.ok || !result.success) {
                 throw new Error(result.message || "Failed to delete goal");
-                console.error("Error deleting goal:", result.error || res.statusText);
             }
             
-            await fetchGoals(); // Refresh the goals list
+            await fetchGoals();
         } catch (err) {
             setError(err instanceof Error ? err.message : String(err));
         }
     }
 
-    // Render the component
     return (
-        <main className="max-w-3xl mx-auto p-8">
-            <h1 className="text-2xl font-bold mb-6">Goal Management</h1>
+        <div className="min-h-screen bg-gray-100">
+            <Navbar />
+            <main className="max-w-3xl mx-auto p-8">
+                <h1 className="text-2xl font-bold mb-6">Goal Management</h1>
 
-            <GoalForm
-                title={title}
-                description={description}
-                status={status}
-                progress={progress}
-                loading={loading}
-                editingID={editingID}
-                error={error}
-                onTitleChange={setTitle}
-                onDescriptionChange={setDescription}
-                onStatusChange={setStatus}
-                onProgressChange={setProgress}
-                onSubmit={handleSubmit}
-                onCancelEdit={handleCancelEdit}
-            />  
+                <GoalForm
+                    title={title}
+                    description={description}
+                    status={status}
+                    progress={progress}
+                    loading={loading}
+                    editingID={editingID}
+                    error={error}
+                    onTitleChange={setTitle}
+                    onDescriptionChange={setDescription}
+                    onStatusChange={setStatus}
+                    onProgressChange={setProgress}
+                    onSubmit={handleSubmit}
+                    onCancelEdit={handleCancelEdit}
+                />  
 
-            <section>
-                <h2 className="text-xl font-semibold mb-3">Your Goals</h2>
-                <GoalList
-                    goals={goals}
-                    fetching={fetching}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                />
-            </section>
-        </main>
+                <section>
+                    <h2 className="text-xl font-semibold mb-3">Your Goals</h2>
+                    <GoalList
+                        goals={goals}
+                        fetching={fetching}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                    />
+                </section>
+            </main>
+        </div>
     );
 }
-

@@ -1,5 +1,25 @@
 # CS732 project - Team Giant Pokemon
 
+> **Updated by:** Ziqian Xu(Marvin Xu) (5th May 2026)
+
+## 📋 What's New
+
+### Task Management Module ✅
+- Full CRUD operations (Create, Read, Update, Delete)
+- User isolation - each user sees only their own tasks
+- Schedule Engine ready (priority, status, estimated minutes, deadline)
+- Pages: `/tasks` (task management), `/dashboard` (landing with navigation cards)
+
+### Smart Schedule Module 🔄
+- `/schedule` page with 30-minute timeline slots
+- Drag-and-drop tasks to schedule
+- Conflict detection and visual feedback
+- Local storage persistence
+
+---
+
+
+
 Welcome to the CS732 project. We look forward to seeing the amazing things you create this semester! This is your team's repository.
 
 Your team members are:
