@@ -10,3 +10,6 @@ node_modules
 !.env.example
 !.env.test
 .next
+
+# Personal local notes
+.personal/

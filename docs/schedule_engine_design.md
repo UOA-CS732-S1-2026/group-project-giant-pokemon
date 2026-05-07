@@ -3,6 +3,39 @@
 This document records the agreed design decisions for the Schedule Engine work
 on `feat/schedule-engine`.
 
+## Version History
+
+### v0.2 - AI preference-based rescheduling
+
+Changes from v0.1:
+
+- Clarifies that Rule and AI engines keep one public input/output contract even
+  though their internal strategies differ.
+- Adds user scheduling instruction as the input that allows AI mode to deviate
+  from the deterministic rule baseline.
+- Defines AI mode as a constrained adjustment layer over a rule-generated
+  baseline, not an unconstrained replacement scheduler.
+- Classifies constraints into hard constraints, strong preferences, and soft
+  preferences.
+- Requires AI mode to fallback to rule mode if user instruction, model output,
+  validation, or provider execution cannot produce a safe schedule.
+- Clarifies that Rule mode remains deterministic and cannot express subjective
+  preferences such as "move some low-priority warm-up tasks earlier."
+
+### v0.1 - Baseline two-mode schedule engine
+
+Initial agreed design:
+
+- Two modes: deterministic `rule` and Gemini-backed `ai`.
+- Shared response shape with `data` and `meta`.
+- Rule scheduling by priority, deadline, default window, overflow, and occupied
+  blocks.
+- AI scheduling with JSON-only output, validation, per-block reasoning, and
+  fallback to rule.
+- Reasoning returned in response metadata only, not persisted.
+- Request task provider supports frontend-supplied tasks first, then backend
+  mock tasks, later real Task module.
+
 ## Scope
 
 Implement two backend schedule generation modes:
@@ -39,6 +72,15 @@ Both modes return:
 This keeps frontend code, API routes, persistence, and tests from splitting into
 two separate implementations.
 
+The engines may use different internal strategies:
+
+- Rule mode ignores user preference instructions and follows deterministic
+  priority/deadline rules.
+- AI mode may use user instructions, reasoning, and a rule baseline to adjust
+  the schedule.
+
+These differences must stay behind the shared engine contract.
+
 ### Engines generate; routes persist
 
 Schedule engines do not read or write MongoDB directly.
@@ -62,11 +104,24 @@ It is both:
 
 - the explicit `rule` generation mode
 - the fallback path when AI mode cannot safely produce a valid schedule
+- the baseline plan AI mode uses before applying user preference instructions
 
 ### AI is an enhancement, not a dependency
 
 AI mode may improve scheduling quality and provide reasoning, but the product
 must still return a useful schedule when AI is unavailable or invalid.
+
+AI mode is responsible for preference-based rescheduling, especially when the
+user is dissatisfied with the rule output for subjective reasons. Examples:
+
+- "Move some low-priority tasks earlier because they are easy warm-up tasks."
+- "Keep the morning lighter."
+- "Group similar admin tasks together."
+- "Avoid doing two long focus tasks back to back."
+
+These requests should not expand the Rule engine into a large set of preference
+switches. Instead, AI mode uses the user instruction to justify safe deviations
+from the rule baseline.
 
 AI mode falls back to rule mode when:
 
@@ -77,6 +132,8 @@ AI mode falls back to rule mode when:
 - the response fails validation
 - required reasoning is missing
 - tasks are not fully accounted for
+- the user instruction is missing when AI rescheduling requires one
+- the AI output violates any hard scheduling constraint
 
 Fallback responses keep `requestedMode: "ai"` and use `usedMode: "rule"`.
 
@@ -109,6 +166,53 @@ Rule and AI modes must follow the same scheduling constraints:
 - tasks that still cannot fit are returned as unscheduled
 
 AI cannot invent exceptions to these rules.
+
+### AI deviations require instruction
+
+AI mode should stay close to the rule baseline when no user instruction is
+provided.
+
+When the user wants a different schedule, the frontend should collect an
+instruction explaining why the rule result should change. That instruction is a
+first-class scheduling input, not decorative prompt text.
+
+The instruction allows AI mode to change soft preferences while preserving hard
+constraints.
+
+### Constraint hierarchy
+
+Hard constraints must always be enforced by both Rule and AI modes:
+
+- Fixed blocks cannot move.
+- Completed blocks cannot move.
+- Generated blocks must not overlap occupied or fixed blocks.
+- Task duration cannot change.
+- Tasks cannot be split.
+- A task can appear at most once in generated blocks.
+- Generated blocks must use valid `HH:mm` times.
+- Only must-complete tasks may overflow past the normal window.
+- No task can go beyond the overflow cap.
+- AI cannot create tasks, rename tasks, or use unknown task ids.
+
+`Fixed` is a scheduling/orchestration concept: once the API supports explicit
+fixed blocks, the orchestrator should pass them to engines as occupied blocks
+and preserve them during persistence. It should not require changing the core
+engine output shape.
+
+Strong preferences should be followed unless the user instruction explicitly
+asks for a safe deviation:
+
+- Higher priority tasks are generally earlier than lower priority tasks.
+- Earlier deadlines are generally earlier than later deadlines.
+- Must-complete-today tasks should be scheduled if any valid slot exists.
+
+Soft preferences are where AI mode may provide value:
+
+- Move easy low-priority tasks earlier as warm-up work.
+- Keep cognitively hard tasks in preferred parts of the day.
+- Group similar tasks.
+- Leave buffer between demanding tasks.
+- Avoid long uninterrupted runs of work.
 
 ### Inputs are normalized before scheduling
 
@@ -178,6 +282,7 @@ type ScheduleEngineRequest = {
   date?: string; // YYYY-MM-DD, defaults to today
   mode?: "rule" | "ai"; // defaults to "rule"
   tasks?: TaskInput[]; // optional test input from the browser page
+  instruction?: string; // optional; used by AI preference rescheduling
 };
 ```
 
@@ -278,6 +383,18 @@ Occupied blocks:
 
 AI mode uses Gemini.
 
+AI mode is a constrained preference-adjustment layer:
+
+1. Generate a rule baseline using the same normalized input.
+2. Send tasks, occupied/fixed blocks, schedule window, rule baseline, and user
+   instruction to the model.
+3. Validate the model output against the shared hard constraints.
+4. Return the validated AI schedule with reasoning.
+5. Fallback to the rule baseline if anything unsafe or invalid occurs.
+
+AI mode should not be treated as a separate scheduling product with a separate
+API shape.
+
 Provider decisions:
 
 - Use Gemini.
@@ -304,7 +421,9 @@ Gemini request decisions:
   - `temperature: 0.2`
 - Prompt includes:
   - schedule date
+  - user instruction, when provided
   - tasks
+  - rule baseline blocks
   - normal window `09:00-17:00`
   - overflow cap `22:00`
   - occupied blocks
@@ -314,6 +433,9 @@ Gemini request decisions:
   - do not rename tasks
   - use only provided task ids
   - only must-complete tasks may overflow
+  - keep close to the rule baseline unless the instruction justifies a
+    deviation
+  - explain meaningful deviations in scheduled reasoning
 - Prompt includes schedule date only; no runtime datetime/timezone.
 
 JSON parsing:
@@ -337,7 +459,20 @@ AI validation:
 - AI must account for all tasks as scheduled, overflow, or unscheduled.
 - Every successful AI scheduled task must have scheduled reasoning.
 - A task cannot appear in both scheduled and unscheduled output.
+- AI output must not move fixed or completed blocks.
+- AI output must not omit required reasoning for meaningful deviations from the
+  rule baseline.
 - If any critical validation fails, fallback the entire result to rule mode.
+
+Instruction behavior:
+
+- If `mode: "ai"` is requested without an instruction, AI may still run but
+  should stay close to the rule baseline.
+- If the user's desired change cannot be expressed safely, return fallback rule
+  output or validated AI output with unscheduled reasons rather than violating
+  constraints.
+- The backend should include the instruction in prompts only after normalization
+  and length checks.
 
 ## Reasoning and Meta
 
@@ -420,6 +555,7 @@ POST /api/schedules/regenerate
   date?: string;
   mode?: "rule" | "ai";
   tasks?: TaskInput[];
+  instruction?: string;
 }
 ```
 
@@ -434,6 +570,8 @@ Behavior:
 - Missed blocks without `taskId` are preserved and not replanned.
 - Preserve non-replanned existing blocks as occupied blocks.
 - AI reasoning only covers newly generated/replanned blocks.
+- In AI mode, `instruction` can request preference-based adjustments for the
+  replanned tasks, but existing preserved blocks remain hard constraints.
 
 ## Persistence
 

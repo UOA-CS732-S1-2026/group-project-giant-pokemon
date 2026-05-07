@@ -2,10 +2,15 @@
 
 import type { ScheduleBlock, ScheduleBlockStatus } from "@/types/schedule";
 
+export type ScheduleListBlock = ScheduleBlock & {
+    fixed?: boolean;
+};
+
 type ScheduleListProps = {
-    blocks: ScheduleBlock[];
+    blocks: ScheduleListBlock[];
     fetching: boolean;
     actionId: string | null;
+    onFixedChange?: (id: string, fixed: boolean) => void;
     onStatusChange: (id: string, status: ScheduleBlockStatus) => void;
     onDelete: (id: string) => void;
 };
@@ -14,6 +19,7 @@ export default function ScheduleList({
     blocks,
     fetching,
     actionId,
+    onFixedChange,
     onStatusChange,
     onDelete,
 }: ScheduleListProps) {
@@ -41,6 +47,20 @@ export default function ScheduleList({
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
+                            {onFixedChange && (
+                                <label className="flex items-center gap-2 rounded border px-3 py-1 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        checked={Boolean(block.fixed)}
+                                        disabled={actionId === block.id}
+                                        onChange={(event) =>
+                                            onFixedChange(block.id, event.target.checked)
+                                        }
+                                    />
+                                    Fixed
+                                </label>
+                            )}
+
                             <select
                                 className="rounded border px-3 py-1 text-sm"
                                 value={block.status}
@@ -79,4 +99,3 @@ export default function ScheduleList({
         </ul>
     );
 }
-

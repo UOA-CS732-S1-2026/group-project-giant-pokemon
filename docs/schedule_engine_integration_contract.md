@@ -4,12 +4,46 @@ This document is for developers working on the Task module and the Scheduling
 frontend. It defines the data shapes and behaviors needed to integrate with the
 Schedule Engine.
 
+## Version History
+
+### v0.2 - AI preference-based rescheduling
+
+Changes from v0.1:
+
+- Adds optional `instruction` to schedule generation requests for AI preference
+  rescheduling.
+- Clarifies that Rule and AI modes still share one request/response contract.
+- Defines Rule mode as the deterministic baseline and AI mode as a constrained
+  adjustment layer over that baseline.
+- Requires frontend to collect a user reason/instruction when the user wants AI
+  to change an otherwise valid rule schedule.
+- Clarifies that AI can adjust soft preferences but must not violate hard
+  constraints such as fixed blocks, completed blocks, task duration, overlap, or
+  overflow cap.
+- Requires frontend to show AI fallback state and reasoning because AI may
+  safely return Rule output.
+
+### v0.1 - Baseline integration contract
+
+Initial agreed design:
+
+- Task module provides normalized schedulable task data.
+- Scheduling frontend calls common generate/regenerate endpoints.
+- Rule and AI modes share response metadata.
+- Reasoning is displayed from `meta` and not persisted into `ScheduleBlock`.
+- Invalid request task data returns `400` instead of falling back to mock data.
+
 The engine has two modes:
 
 - `rule`: deterministic priority/deadline scheduling.
 - `ai`: Gemini-backed scheduling with per-task reasoning.
 
 Both modes use the same request and response contract.
+
+Rule mode is deterministic and does not interpret subjective preference
+instructions. AI mode may use an instruction to safely adjust the rule baseline,
+but it must return the same response shape and fallback to rule output when it
+cannot produce a valid adjusted schedule.
 
 ## Shared Concepts
 
@@ -199,6 +233,7 @@ type GenerateScheduleRequest = {
   date?: string;
   mode?: "rule" | "ai";
   tasks?: TaskInput[];
+  instruction?: string;
 };
 ```
 
@@ -208,6 +243,7 @@ Example:
 {
   "date": "2026-05-05",
   "mode": "ai",
+  "instruction": "Move one or two easy low-priority tasks earlier as warm-up work.",
   "tasks": [
     {
       "id": "task-1",
@@ -233,6 +269,7 @@ type RegenerateScheduleRequest = {
   date?: string;
   mode?: "rule" | "ai";
   tasks?: TaskInput[];
+  instruction?: string;
 };
 ```
 
@@ -246,6 +283,10 @@ Do not rely on title matching.
 
 If a missed block has no `taskId`, it is treated as a manual/custom block and is
 not replanned by the engine.
+
+In AI mode, `instruction` may request a preference-based adjustment for the
+tasks being regenerated. The backend should still preserve non-replanned blocks
+as hard constraints.
 
 ### Frontend task input shape
 
@@ -340,6 +381,10 @@ Frontend should:
 
 - Provide a mode selector for `rule` and `ai`.
 - Send current task input list in `tasks` when testing custom scenarios.
+- Ask the user for an `instruction` when they choose AI mode to change a valid
+  rule schedule.
+- Treat `instruction` as the reason for preference-based rescheduling, not as a
+  replacement for structured task/block data.
 - Display `meta.usedMode`, especially when AI falls back to rule.
 - Display `meta.fallback.message` when present.
 - Display AI scheduled reasoning by matching:
@@ -361,6 +406,62 @@ Frontend should not:
 - Persist reasoning into `ScheduleBlock`.
 - Use task title to match reasoning or missed tasks.
 - Send invalid tasks expecting backend fallback to mock data.
+- Expect Rule mode to satisfy subjective preference requests such as moving
+  low-priority tasks earlier.
+- Allow AI output to silently overwrite blocks the user marked as fixed or
+  completed.
+
+### AI preference rescheduling instruction
+
+When a user is dissatisfied with a deterministic rule schedule, the frontend
+should collect a concise instruction before requesting AI mode.
+
+Good examples:
+
+```text
+Move one or two easy low-priority tasks earlier because I want a warm-up block.
+```
+
+```text
+Keep the morning lighter and put deep work after lunch.
+```
+
+```text
+Group admin tasks together, but keep today's deadline tasks scheduled.
+```
+
+The instruction may affect soft preferences only. It cannot override hard
+constraints.
+
+Hard constraints:
+
+- fixed blocks cannot move
+- completed blocks cannot move
+- generated blocks must not overlap existing occupied blocks
+- task duration cannot change
+- tasks cannot be split
+- unknown task ids cannot be introduced
+- only must-complete tasks may overflow
+- no task may exceed the overflow cap
+
+`Fixed` is currently a frontend/orchestrator concept, not a field in the
+persisted `ScheduleBlock` contract above. If the Scheduling frontend supports a
+fixed toggle, it should send or preserve those blocks through orchestration as
+occupied blocks so neither Rule nor AI mode can move into that time.
+
+Strong preferences that AI may deviate from only with a clear instruction:
+
+- higher priority tasks are generally earlier
+- earlier deadlines are generally earlier
+- must-complete-today tasks should be scheduled if a valid slot exists
+
+Soft preferences AI may adjust:
+
+- easier low-priority tasks earlier as warm-up
+- lighter or heavier morning/afternoon
+- grouping similar tasks
+- adding buffer between demanding tasks
+- avoiding consecutive long tasks
 
 ## Scheduling Behavior to Reflect in UI
 
@@ -458,4 +559,3 @@ Scheduling frontend is ready for integration when:
 - reasoning/overflow/unscheduled render from `meta`
 - AI fallback state is visible
 - reasoning is stored client-side only if needed
-

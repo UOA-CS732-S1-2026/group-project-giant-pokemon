@@ -1,0 +1,24 @@
+export type AIProvider = "gemini";
+
+export type AIResponseMimeType = "application/json" | "text/plain";
+
+export type AIRequest = {
+    provider?: AIProvider;
+    prompt: string;
+    temperature?: number;
+    responseMimeType?: AIResponseMimeType;
+    timeoutMs?: number;
+    model?: string;
+};
+
+export type AIResult = {
+    text: string;
+    provider: AIProvider;
+    model: string;
+};
+
+export type FetchFunction = (
+    input: string | URL | Request,
+    init?: RequestInit
+) => Promise<Response>;
+

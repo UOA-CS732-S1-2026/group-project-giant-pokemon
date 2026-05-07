@@ -30,6 +30,16 @@ export type EngineOccupiedBlock = {
     status: ScheduleBlockStatus;
 };
 
+export type EngineGeneratedBlock = {
+    userId: string;
+    taskId: string;
+    title: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    status: "scheduled";
+};
+
 export type ScheduleMetaItem = {
     taskId: string;
     title: string;
@@ -61,9 +71,13 @@ export type ScheduleGenerationMeta = {
     unscheduled: ScheduleMetaItem[];
 };
 
+export type ScheduleEngineResult = {
+    blocks: EngineGeneratedBlock[];
+    meta: ScheduleGenerationMeta;
+};
+
 export type MockScheduleEngineResponse = {
     success: true;
     data: ScheduleBlockAPI[];
     meta: ScheduleGenerationMeta;
 };
-
