@@ -4,7 +4,8 @@ import type { AIRequest, AIResult, FetchFunction } from "@/lib/ai/types";
 
 const DEFAULT_TEMPERATURE = 0.2;
 const DEFAULT_RESPONSE_MIME_TYPE = "application/json";
-const DEFAULT_TIMEOUT_MS = 30000;
+const DEFAULT_THINKING_LEVEL = "low";
+const DEFAULT_TIMEOUT_MS = 60_000;
 
 type GeminiClientOptions = {
     env?: Parameters<typeof getGeminiConfig>[0];
@@ -62,6 +63,9 @@ export async function generateGeminiContent(
                     responseMimeType:
                         request.responseMimeType ?? DEFAULT_RESPONSE_MIME_TYPE,
                     temperature: request.temperature ?? DEFAULT_TEMPERATURE,
+                    thinkingConfig: {
+                        thinkingLevel: request.thinkingLevel ?? DEFAULT_THINKING_LEVEL,
+                    },
                 },
             }),
             signal: controller.signal,
@@ -130,4 +134,3 @@ function extractGeminiText(payload: GeminiGenerateContentResponse) {
 
     return text;
 }
-

@@ -37,6 +37,9 @@ describe("generateGeminiContent", () => {
                 generationConfig: {
                     responseMimeType: "application/json",
                     temperature: 0.2,
+                    thinkingConfig: {
+                        thinkingLevel: "low",
+                    },
                 },
             });
 
@@ -57,6 +60,37 @@ describe("generateGeminiContent", () => {
             text: '{"ok":true}',
             provider: "gemini",
             model: "test-model",
+        });
+    });
+
+    it("allows the thinking level to be overridden", async () => {
+        const fetchFn: FetchFunction = async (_input, init) => {
+            expect(JSON.parse(String(init?.body))).toMatchObject({
+                generationConfig: {
+                    thinkingConfig: {
+                        thinkingLevel: "medium",
+                    },
+                },
+            });
+
+            return jsonResponse({
+                candidates: [
+                    {
+                        content: {
+                            parts: [{ text: '{"ok":true}' }],
+                        },
+                    },
+                ],
+            });
+        };
+
+        await expect(
+            generateGeminiContent(
+                { prompt: "Return JSON", thinkingLevel: "medium" },
+                { env, fetchFn }
+            )
+        ).resolves.toMatchObject({
+            text: '{"ok":true}',
         });
     });
 
@@ -122,4 +156,3 @@ function jsonResponse(body: unknown) {
         },
     });
 }
-
