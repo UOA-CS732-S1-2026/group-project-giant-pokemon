@@ -15,12 +15,27 @@ export async function PATCH(req: Request) {
     }
 
     const decoded: any = verifyToken(token);
-
-    const { name } = await req.json();
+    const body = await req.json();
 
     const updated = await User.findByIdAndUpdate(
-      decoded.id, // FIXED
-      { name },
+      decoded.id,
+      {
+        name: body.name,
+        role: body.role,
+        mainGoal: body.mainGoal,
+
+        // Planning Preferences
+        startTime: body.startTime,
+        endTime: body.endTime,
+        workload: body.workload,
+        focusStyle: body.focusStyle,
+        breakPref: body.breakPref,
+
+        // Personalisation
+        motivation: body.motivation,
+        priority: body.priority,
+        scheduleStyle: body.scheduleStyle,
+      },
       { new: true }
     ).select("-passwordHash");
 
