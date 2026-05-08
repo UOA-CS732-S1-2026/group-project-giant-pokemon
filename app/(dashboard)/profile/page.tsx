@@ -300,15 +300,15 @@ export default function ProfilePage() {
             </div>
 
           </div>
-
-          <button
-            onClick={handleSave}
-            className="mt-10 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition"
-          >
-            Save Preferences
-          </button>
         </div>
-
+       <div className="mt-12 flex justify-center">
+        <button
+          onClick={handleSave}
+          className="bg-white text-blue-700 font-semibold px-10 py-3 rounded-xl text-lg shadow-md hover:shadow-lg hover:bg-blue-50 transition"
+        >
+          Save All Preferences
+        </button>
+      </div>
       </main>
     </div>
   );
