@@ -1,38 +1,36 @@
-# Scheduling Module Implementation
+# Scheduling Module Overview
 
-This document describes the Scheduling module currently implemented on the
-`feat/scheduling-module` branch.
+This document summarizes the Scheduling module's production-facing backend
+surface. Detailed Schedule Engine behavior is maintained separately in
+`docs/schedule_engine_design.md`; Task and frontend integration requirements are
+maintained in `docs/schedule_engine_integration_contract.md`.
 
-## Current Scope
+## Scope
 
-The Scheduling MVP includes:
+The Scheduling module provides:
 
 - Persistent schedule blocks stored in MongoDB with Mongoose.
-- Server-side mock Task input while the real Task module is not available.
-- Rule-based daily schedule generation.
-- Schedule regeneration for missed task blocks.
 - CRUD APIs for schedule blocks.
-- A basic `/schedules` management page.
-- A browser-only test Task Input list on the `/schedules` page.
-- A home page link to Schedule Management.
+- Schedule generation and regeneration APIs.
+- Rule and AI schedule generation through the shared Schedule Engine contract.
+- Server-side mock Task input until the real Task module is integrated.
 
-The real User, Task, and Goal integrations are not implemented in this branch.
+The first implementation uses a fixed demo user while auth/user integration is
+pending.
 
-## Default Settings
+## Defaults
 
-- User identity is mocked as `demo-user`.
-- Daily available time is fixed from `09:00` to `17:00`.
-- Missing task `estimatedMinutes` defaults to `60` minutes.
-- Schedule block time fields use `HH:mm` format.
-- Schedule dates are accepted as `YYYY-MM-DD` and stored as midnight UTC dates.
-- MVP does not perform complex conflict detection for manual schedule edits.
-- The `/schedules` page currently stores its test tasks and schedule edits in
-  browser `localStorage`; those page-level testing changes are not written to
-  MongoDB.
+- User identity: `demo-user`.
+- Normal schedule window: `09:00-17:00`.
+- Overflow cap: `22:00`.
+- Missing task `estimatedMinutes`: `60`.
+- Request dates and task deadlines: `YYYY-MM-DD`.
+- Schedule block times: `HH:mm`.
+- Schedule dates are stored as midnight UTC `Date` values.
 
 ## Data Model
 
-The module adds `ScheduleBlock` in `models/ScheduleBlock.ts`.
+The persistent model is `ScheduleBlock` in `models/ScheduleBlock.ts`.
 
 ```ts
 type ScheduleBlock = {
@@ -56,89 +54,22 @@ Validation rules:
 - `startTime` and `endTime` must match `HH:mm`.
 - `status` must be `scheduled`, `completed`, or `missed`.
 
-Client-facing types are defined in `types/schedule.ts`.
+Reasoning, AI fallback details, and other generation metadata are returned in
+API response `meta` only. They are not persisted in `ScheduleBlock`.
 
-## Mock Task Provider
+`Fixed` is not a persisted `ScheduleBlock` field. It is an orchestration concept
+for preserving blocks during generation workflows.
 
-The upstream Task module is mocked in `lib/mockTasks.ts`.
-
-Mock tasks include:
-
-- `id`
-- `goalId?`
-- `title`
-- `status`
-- `priority`
-- `deadline?`
-- `estimatedMinutes?`
-
-Only tasks with status `todo` or `in_progress` are returned for scheduling.
-Completed mock tasks are excluded.
-
-The provider exposes:
-
-- `getActiveMockTasks()`
-- `getActiveMockTasksByIds(taskIds)`
-
-These functions are intended to be replaced later by real Task model queries
-without changing the schedule generation API shape.
-
-## Scheduling Rules
-
-Core scheduling logic lives in `lib/scheduler.ts`.
-
-Generation behavior:
-
-- Sort active tasks by priority first: `high > medium > low`.
-- For tasks with the same priority, schedule earlier deadlines first.
-- Start scheduling at `09:00`.
-- Stop scheduling after `17:00`.
-- Skip tasks that cannot fit into the remaining available time.
-- Create generated blocks with status `scheduled`.
-
-Generate semantics:
-
-- `POST /api/schedules/generate` deletes the selected date's existing
-  `scheduled` and `missed` blocks for `demo-user`.
-- Existing `completed` blocks are preserved.
-- New generated task blocks are inserted around preserved completed blocks.
-
-Regenerate semantics:
-
-- `POST /api/schedules/regenerate` only replans missed blocks that are linked to
-  active mock tasks.
-- Non-missed blocks are preserved.
-- Missed blocks whose tasks can be replanned are removed and recreated in
-  available gaps.
-
-## API Endpoints
+## APIs
 
 ### `GET /api/schedules?date=YYYY-MM-DD`
 
 Returns schedule blocks for `demo-user` on the selected date, sorted by
-`startTime`.
-
-If `date` is omitted, the API uses today's date.
-
-### `POST /api/schedules/generate`
-
-Generates a daily schedule from active mock tasks.
-
-Request body:
-
-```json
-{
-  "date": "2026-05-04"
-}
-```
-
-`date` is optional. If omitted, today's date is used.
+`startTime`. If `date` is omitted, today's date is used.
 
 ### `POST /api/schedules`
 
 Creates a manual schedule block.
-
-Request body:
 
 ```json
 {
@@ -151,7 +82,7 @@ Request body:
 }
 ```
 
-`taskId` is optional. This allows custom blocks that are not linked to a task.
+`taskId` is optional, allowing custom blocks that are not linked to a task.
 
 ### `PATCH /api/schedules/[id]`
 
@@ -166,61 +97,99 @@ Supported fields:
 - `status`
 - `taskId`
 
-The API validates date format, time format, valid time range, and status.
+The API validates date format, time format, time range, and status.
 
 ### `DELETE /api/schedules/[id]`
 
 Deletes a schedule block owned by `demo-user`.
 
-### `POST /api/schedules/regenerate`
+### `POST /api/schedules/generate`
 
-Replans missed task blocks for a selected date.
+Generates and persists a schedule for the selected date.
 
-Request body:
-
-```json
-{
-  "date": "2026-05-04"
-}
+```ts
+type GenerateScheduleRequest = {
+  date?: string;
+  mode?: "rule" | "ai";
+  tasks?: TaskInput[];
+  instruction?: string;
+};
 ```
 
-`date` is optional. If omitted, today's date is used.
+Persistence behavior:
 
-## UI
+- Preserves existing `completed` blocks.
+- Deletes existing `scheduled` and `missed` blocks after engine generation
+  succeeds.
+- Inserts newly generated blocks.
+- Returns `{ success, data, meta }`.
 
-The Scheduling page is implemented at `app/schedules/page.tsx`.
+### `POST /api/schedules/regenerate`
 
-It provides:
+Regenerates missed task blocks for the selected date.
 
-- A left-side Task Input list for browser-only testing.
-- Manual task add/delete controls.
-- A schedule date picker.
-- Generate Daily Schedule button.
-- Regenerate Missed Tasks button.
-- Manual schedule block form.
-- Daily schedule list.
-- Status updates for each block.
-- Delete action for each block.
+```ts
+type RegenerateScheduleRequest = {
+  date?: string;
+  mode?: "rule" | "ai";
+  tasks?: TaskInput[];
+  instruction?: string;
+};
+```
 
-Supporting components:
+Persistence behavior:
 
-- `components/schedules/TaskInputList.tsx`
-- `components/schedules/ScheduleForm.tsx`
-- `components/schedules/ScheduleList.tsx`
+- Matches missed blocks to tasks by `taskId`.
+- Replans only matched missed task blocks.
+- Preserves non-replanned blocks as occupied time.
+- Preserves missed manual blocks without `taskId`.
+- Deletes replaced missed blocks after engine generation succeeds.
+- Inserts newly generated blocks.
+- Returns `{ success, data, meta }`.
 
-The home page includes a link to `/schedules`.
+## Task Input
 
-### Browser-only Task Input Test Mode
+Until the real Task module is integrated, the backend can use mock tasks.
+Generation endpoints may also receive request-provided tasks for integration
+testing.
 
-The `/schedules` page does not call the schedule APIs for the interactive
-testing flow. Instead:
+Tasks are normalized into the Schedule Engine shape:
 
-- Task inputs are stored under `taskflow:schedules:test-tasks`.
-- Schedule blocks are stored under `taskflow:schedules:test-blocks`.
-- Generate Daily Schedule uses the current browser task list as input.
-- Deleting a task removes it from future generation input only.
-- Refreshing the page keeps local test data in the same browser.
-- Clearing browser storage resets the page to the default mock task list.
+```ts
+type SchedulableTask = {
+  id: string;
+  goalId?: string;
+  title: string;
+  description?: string;
+  status: "todo" | "in_progress";
+  priority: "low" | "medium" | "high";
+  deadline?: string;
+  estimatedMinutes: number;
+};
+```
+
+Normalization rules:
+
+- `status` defaults to `todo`.
+- `completed` tasks are filtered out.
+- `estimatedMinutes` defaults to `60`.
+- `estimatedMinutes` must be an integer from `1` to `480`.
+- `deadline`, when present, must use `YYYY-MM-DD`.
+- Duplicate task ids are rejected.
+- Request task lists are limited to 50 tasks.
+
+## Engine Integration
+
+Scheduling routes use the Schedule Engine through an orchestration layer:
+
+- Parse and validate request input.
+- Resolve schedulable tasks.
+- Select `rule` or `ai` mode.
+- Generate blocks and metadata.
+- Persist blocks according to generate/regenerate semantics.
+- Return schedule blocks and generation `meta`.
+
+The engine itself does not read or write MongoDB.
 
 ## Local Development
 
@@ -249,27 +218,9 @@ Then start the app:
 npm run dev
 ```
 
-Open:
+## Related Documents
 
-```text
-http://localhost:3000/schedules
-```
-
-## Validation Performed
-
-The Scheduling implementation was verified with:
-
-```bash
-npm run lint
-MONGODB_URI=mongodb://localhost:27017/taskflow npm run build
-```
-
-Known lint warnings from pre-existing code:
-
-- `GoalStatus` is imported but unused in `app/goals/page.tsx`.
-- `buffer` is imported but unused in `lib/mongodb.ts`.
-
-Manual API verification:
-
-- `POST /api/schedules/generate` successfully creates schedule blocks.
-- `GET /api/schedules?date=YYYY-MM-DD` returns generated blocks.
+- `docs/schedule_engine_design.md`: Rule/AI engine design, fallback behavior,
+  reasoning metadata, and scheduling constraints.
+- `docs/schedule_engine_integration_contract.md`: Task module and frontend
+  integration contract.
