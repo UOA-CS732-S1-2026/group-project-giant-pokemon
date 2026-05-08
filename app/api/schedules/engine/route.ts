@@ -4,14 +4,14 @@ import {
     parseScheduleDate,
 } from "@/lib/scheduler";
 import {
-    generateAISchedule,
-    generateRuleSchedule,
+    generateScheduleWithEngine,
+    getSchedulableTasks,
+    parseScheduleGenerationMode,
+    parseScheduleInstruction,
 } from "@/lib/scheduleEngine";
 import type {
     EngineOccupiedBlock,
-    ScheduleGenerationMode,
     ScheduleWindowConfig,
-    SchedulableTask,
 } from "@/lib/scheduleEngine";
 
 type EnginePreviewRequestBody = {
@@ -38,23 +38,20 @@ export async function POST(request: Request) {
         }
 
         const date = scheduleDate.toISOString().slice(0, 10);
-        const mode = parseMode(body.mode);
-        const tasks = parseTasks(body.tasks);
+        const mode = parseScheduleGenerationMode(body.mode);
+        const tasks = await getSchedulableTasks({ requestTasks: body.tasks });
         const occupiedBlocks = parseOccupiedBlocks(body.occupiedBlocks);
-        const instruction = parseOptionalString(body.instruction);
+        const instruction = parseScheduleInstruction(body.instruction);
         const window = parseWindow(body.window);
-        const input = {
+        const result = await generateScheduleWithEngine({
+            mode,
             date,
             userId: DEMO_USER_ID,
             tasks,
             occupiedBlocks,
             window,
             instruction,
-        };
-        const result =
-            mode === "ai"
-                ? await generateAISchedule(input)
-                : generateRuleSchedule(input);
+        });
 
         return Response.json(
             {
@@ -70,77 +67,6 @@ export async function POST(request: Request) {
             { status: 400 }
         );
     }
-}
-
-function parseMode(value: unknown): ScheduleGenerationMode {
-    if (value === undefined || value === null || value === "") {
-        return "rule";
-    }
-
-    if (value === "rule" || value === "ai") {
-        return value;
-    }
-
-    throw new Error("Mode must be rule or ai.");
-}
-
-function parseTasks(value: unknown): SchedulableTask[] {
-    if (!Array.isArray(value)) {
-        throw new Error("Tasks must be an array.");
-    }
-
-    return value.map((task, index) => {
-        if (!isPlainObject(task)) {
-            throw new Error(`Task at index ${index} must be an object.`);
-        }
-
-        if (typeof task.id !== "string" || !task.id.trim()) {
-            throw new Error(`Task at index ${index} must include id.`);
-        }
-
-        if (typeof task.title !== "string" || !task.title.trim()) {
-            throw new Error(`Task ${task.id} must include title.`);
-        }
-
-        if (task.status !== "todo" && task.status !== "in_progress") {
-            throw new Error(`Task ${task.id} status must be todo or in_progress.`);
-        }
-
-        if (
-            task.priority !== "low" &&
-            task.priority !== "medium" &&
-            task.priority !== "high"
-        ) {
-            throw new Error(`Task ${task.id} priority must be low, medium, or high.`);
-        }
-
-        if (
-            task.deadline !== undefined &&
-            (typeof task.deadline !== "string" || !parseScheduleDate(task.deadline))
-        ) {
-            throw new Error(`Task ${task.id} deadline must use YYYY-MM-DD format.`);
-        }
-
-        if (
-            typeof task.estimatedMinutes !== "number" ||
-            !Number.isInteger(task.estimatedMinutes) ||
-            task.estimatedMinutes <= 0
-        ) {
-            throw new Error(`Task ${task.id} estimatedMinutes must be a positive integer.`);
-        }
-
-        return {
-            id: task.id,
-            goalId: typeof task.goalId === "string" ? task.goalId : undefined,
-            title: task.title.trim(),
-            description:
-                typeof task.description === "string" ? task.description : undefined,
-            status: task.status,
-            priority: task.priority,
-            deadline: typeof task.deadline === "string" ? task.deadline : undefined,
-            estimatedMinutes: task.estimatedMinutes,
-        };
-    });
 }
 
 function parseOccupiedBlocks(value: unknown): EngineOccupiedBlock[] {
@@ -200,10 +126,6 @@ function parseWindow(value: unknown): Partial<ScheduleWindowConfig> | undefined 
         overflowEndTime:
             typeof value.overflowEndTime === "string" ? value.overflowEndTime : undefined,
     };
-}
-
-function parseOptionalString(value: unknown) {
-    return typeof value === "string" ? value.trim() : undefined;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

@@ -21,16 +21,32 @@ import type {
     ScheduleGenerationMode,
     SchedulableTask,
 } from "@/lib/scheduleEngine";
-import type { ScheduleBlockStatus } from "@/types/schedule";
+import type { ScheduleBlockAPI, ScheduleBlockStatus } from "@/types/schedule";
 
 const TASKS_STORAGE_KEY = "taskflow:schedules:test-tasks";
 const BLOCKS_STORAGE_KEY = "taskflow:schedules:test-blocks";
 const INSTRUCTION_STORAGE_KEY = "taskflow:schedules:test-instruction";
+const STORAGE_MODE_KEY = "taskflow:schedules:test-storage-mode";
+
+type ScheduleStorageMode = "browser" | "mongodb";
 
 type EnginePreviewResponse = {
     success: boolean;
     data?: EngineGeneratedBlock[];
     meta?: ScheduleGenerationMeta;
+    error?: string;
+};
+
+type ScheduleBlocksResponse = {
+    success: boolean;
+    data?: ScheduleBlockAPI[];
+    meta?: ScheduleGenerationMeta;
+    error?: string;
+};
+
+type ScheduleBlockResponse = {
+    success: boolean;
+    data?: ScheduleBlockAPI;
     error?: string;
 };
 
@@ -137,10 +153,21 @@ function readStoredInstruction() {
     return window.localStorage.getItem(INSTRUCTION_STORAGE_KEY) ?? "";
 }
 
+function readStoredStorageMode(): ScheduleStorageMode {
+    if (typeof window === "undefined") {
+        return "browser";
+    }
+
+    return window.localStorage.getItem(STORAGE_MODE_KEY) === "mongodb"
+        ? "mongodb"
+        : "browser";
+}
+
 export default function SchedulesPage() {
-    const [storedBlocksByDate, setStoredBlocksByDate] = useState<
+    const [browserBlocksByDate, setBrowserBlocksByDate] = useState<
         Record<string, ScheduleListBlock[]>
     >({});
+    const [mongoBlocks, setMongoBlocks] = useState<ScheduleListBlock[]>([]);
     const [tasks, setTasks] = useState<LocalTask[]>(defaultTasks);
     const [taskInput, setTaskInput] = useState<LocalTaskInput>(getEmptyTaskInput());
     const [date, setDate] = useState(getTodayInputDate());
@@ -148,9 +175,11 @@ export default function SchedulesPage() {
     const [startTime, setStartTime] = useState("09:00");
     const [endTime, setEndTime] = useState("10:00");
     const [status, setStatus] = useState<ScheduleBlockStatus>("scheduled");
+    const [storageMode, setStorageMode] = useState<ScheduleStorageMode>("browser");
     const [mode, setMode] = useState<ScheduleGenerationMode>("rule");
     const [instruction, setInstruction] = useState("");
     const [hydrated, setHydrated] = useState(false);
+    const [fetching, setFetching] = useState(false);
     const [loading, setLoading] = useState(false);
     const [generating, setGenerating] = useState(false);
     const [regenerating, setRegenerating] = useState(false);
@@ -158,12 +187,14 @@ export default function SchedulesPage() {
     const [error, setError] = useState("");
     const [taskError, setTaskError] = useState("");
     const [engineMeta, setEngineMeta] = useState<ScheduleGenerationMeta | null>(null);
-    const blocks = storedBlocksByDate[date] ?? [];
+    const blocks =
+        storageMode === "mongodb" ? mongoBlocks : browserBlocksByDate[date] ?? [];
 
     useEffect(() => {
         setTasks(readStoredTasks());
-        setStoredBlocksByDate(readStoredBlocks());
+        setBrowserBlocksByDate(readStoredBlocks());
         setInstruction(readStoredInstruction());
+        setStorageMode(readStoredStorageMode());
         setHydrated(true);
     }, []);
 
@@ -188,21 +219,54 @@ export default function SchedulesPage() {
             return;
         }
 
+        window.localStorage.setItem(STORAGE_MODE_KEY, storageMode);
+    }, [hydrated, storageMode]);
+
+    useEffect(() => {
+        if (typeof window === "undefined" || !hydrated || storageMode !== "browser") {
+            return;
+        }
+
         window.localStorage.setItem(
             BLOCKS_STORAGE_KEY,
-            JSON.stringify(storedBlocksByDate)
+            JSON.stringify(browserBlocksByDate)
         );
-    }, [hydrated, storedBlocksByDate]);
+    }, [browserBlocksByDate, hydrated, storageMode]);
+
+    useEffect(() => {
+        if (!hydrated || storageMode !== "mongodb") {
+            return;
+        }
+
+        fetchMongoSchedule(date);
+    }, [date, hydrated, storageMode]);
 
     function saveBlocksForDate(nextBlocks: ScheduleListBlock[]) {
         const sortedBlocks = [...nextBlocks].sort((first, second) =>
             first.startTime.localeCompare(second.startTime)
         );
 
-        setStoredBlocksByDate((currentBlocksByDate) => ({
+        setBrowserBlocksByDate((currentBlocksByDate) => ({
             ...currentBlocksByDate,
             [date]: sortedBlocks,
         }));
+    }
+
+    async function fetchMongoSchedule(selectedDate: string) {
+        try {
+            setFetching(true);
+            setError("");
+
+            const result = await requestJson<ScheduleBlocksResponse>(
+                `/api/schedules?date=${selectedDate}`
+            );
+
+            setMongoBlocks((result.data ?? []).map(mapApiScheduleBlock));
+        } catch (err) {
+            setError(err instanceof Error ? err.message : String(err));
+        } finally {
+            setFetching(false);
+        }
     }
 
     function handleAddTask(event: React.FormEvent<HTMLFormElement>) {
@@ -252,6 +316,19 @@ export default function SchedulesPage() {
         }
 
         try {
+            if (storageMode === "mongodb") {
+                const result = await callPersistentGenerate({
+                    date,
+                    mode,
+                    tasks: toSchedulableTasks(tasks),
+                    instruction,
+                });
+
+                setEngineMeta(result.meta ?? null);
+                setMongoBlocks((result.data ?? []).map(mapApiScheduleBlock));
+                return;
+            }
+
             const completedBlocks = blocks.filter((block) => block.status === "completed");
             const result = await callScheduleEngine({
                 date,
@@ -290,6 +367,19 @@ export default function SchedulesPage() {
         const tasksToReplan = tasks.filter((task) => !fixedTaskIds.has(task.id));
 
         try {
+            if (storageMode === "mongodb") {
+                const result = await callPersistentRegenerate({
+                    date,
+                    mode,
+                    tasks: toSchedulableTasks(tasks),
+                    instruction,
+                });
+
+                setEngineMeta(result.meta ?? null);
+                setMongoBlocks((result.data ?? []).map(mapApiScheduleBlock));
+                return;
+            }
+
             const result = await callScheduleEngine({
                 date,
                 mode,
@@ -308,7 +398,7 @@ export default function SchedulesPage() {
         }
     }
 
-    function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
         if (!title.trim()) {
@@ -329,40 +419,86 @@ export default function SchedulesPage() {
         setLoading(true);
         setError("");
 
-        saveBlocksForDate([
-            ...blocks,
-            {
-                id: createLocalId("block"),
-                userId: DEMO_USER_ID,
-                title: title.trim(),
-                date: toStoredDate(date),
-                startTime,
-                endTime,
-                status,
-                fixed: true,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-            },
-        ]);
-        setTitle("");
-        setStartTime("09:00");
-        setEndTime("10:00");
-        setStatus("scheduled");
-        setLoading(false);
+        try {
+            if (storageMode === "mongodb") {
+                const result = await createMongoBlock({
+                    title: title.trim(),
+                    date,
+                    startTime,
+                    endTime,
+                    status,
+                });
+
+                const createdBlock = result.data;
+
+                if (createdBlock) {
+                    setMongoBlocks((currentBlocks) =>
+                        sortScheduleBlocks([
+                            ...currentBlocks,
+                            mapApiScheduleBlock(createdBlock),
+                        ])
+                    );
+                }
+            } else {
+                saveBlocksForDate([
+                    ...blocks,
+                    {
+                        id: createLocalId("block"),
+                        userId: DEMO_USER_ID,
+                        title: title.trim(),
+                        date: toStoredDate(date),
+                        startTime,
+                        endTime,
+                        status,
+                        fixed: true,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                    },
+                ]);
+            }
+
+            setTitle("");
+            setStartTime("09:00");
+            setEndTime("10:00");
+            setStatus("scheduled");
+        } catch (err) {
+            setError(err instanceof Error ? err.message : String(err));
+        } finally {
+            setLoading(false);
+        }
     }
 
-    function handleStatusChange(id: string, nextStatus: ScheduleBlockStatus) {
+    async function handleStatusChange(id: string, nextStatus: ScheduleBlockStatus) {
         setActionId(id);
         setError("");
 
-        saveBlocksForDate(
-            blocks.map((block) =>
-                block.id === id
-                    ? { ...block, status: nextStatus, updatedAt: new Date().toISOString() }
-                    : block
-            )
-        );
-        setActionId(null);
+        try {
+            if (storageMode === "mongodb") {
+                const result = await updateMongoBlock(id, { status: nextStatus });
+
+                const updatedBlock = result.data;
+
+                if (updatedBlock) {
+                    setMongoBlocks((currentBlocks) =>
+                        currentBlocks.map((block) =>
+                            block.id === id ? mapApiScheduleBlock(updatedBlock) : block
+                        )
+                    );
+                }
+            } else {
+                saveBlocksForDate(
+                    blocks.map((block) =>
+                        block.id === id
+                            ? { ...block, status: nextStatus, updatedAt: new Date().toISOString() }
+                            : block
+                    )
+                );
+            }
+        } catch (err) {
+            setError(err instanceof Error ? err.message : String(err));
+        } finally {
+            setActionId(null);
+        }
     }
 
     function handleFixedChange(id: string, fixed: boolean) {
@@ -377,11 +513,24 @@ export default function SchedulesPage() {
         setActionId(null);
     }
 
-    function handleDelete(id: string) {
+    async function handleDelete(id: string) {
         setActionId(id);
         setError("");
-        saveBlocksForDate(blocks.filter((block) => block.id !== id));
-        setActionId(null);
+
+        try {
+            if (storageMode === "mongodb") {
+                await deleteMongoBlock(id);
+                setMongoBlocks((currentBlocks) =>
+                    currentBlocks.filter((block) => block.id !== id)
+                );
+            } else {
+                saveBlocksForDate(blocks.filter((block) => block.id !== id));
+            }
+        } catch (err) {
+            setError(err instanceof Error ? err.message : String(err));
+        } finally {
+            setActionId(null);
+        }
     }
 
     return (
@@ -390,7 +539,7 @@ export default function SchedulesPage() {
                 <div>
                     <h1 className="text-2xl font-bold">Schedule Management</h1>
                     <p className="text-sm text-gray-600">
-                        Browser-only test scheduling from editable task inputs
+                        Test scheduling from editable task inputs
                     </p>
                 </div>
                 <Link href="/" className="text-sm underline">
@@ -410,6 +559,32 @@ export default function SchedulesPage() {
 
                 <div>
                     <section className="mb-6 p-4 border rounded space-y-4">
+                        <div>
+                            <label className="block mb-1 font-medium text-sm">
+                                Storage Mode
+                            </label>
+                            <div className="inline-flex rounded border p-1">
+                                <button
+                                    type="button"
+                                    className={`rounded px-3 py-1 text-sm ${
+                                        storageMode === "browser" ? "bg-black text-white" : ""
+                                    }`}
+                                    onClick={() => setStorageMode("browser")}
+                                >
+                                    Browser
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`rounded px-3 py-1 text-sm ${
+                                        storageMode === "mongodb" ? "bg-black text-white" : ""
+                                    }`}
+                                    onClick={() => setStorageMode("mongodb")}
+                                >
+                                    MongoDB
+                                </button>
+                            </div>
+                        </div>
+
                         <div>
                             <label className="block mb-1 font-medium text-sm">
                                 Engine Mode
@@ -560,9 +735,11 @@ export default function SchedulesPage() {
                         <h2 className="text-xl font-semibold mb-3">Daily Schedule</h2>
                         <ScheduleList
                             blocks={blocks}
-                            fetching={false}
+                            fetching={fetching}
                             actionId={actionId}
-                            onFixedChange={handleFixedChange}
+                            onFixedChange={
+                                storageMode === "browser" ? handleFixedChange : undefined
+                            }
                             onStatusChange={handleStatusChange}
                             onDelete={handleDelete}
                         />
@@ -596,6 +773,19 @@ function toLocalScheduleBlocks(
         createdAt: now,
         updatedAt: now,
     }));
+}
+
+function mapApiScheduleBlock(block: ScheduleBlockAPI): ScheduleListBlock {
+    return {
+        ...block,
+        id: block._id,
+    };
+}
+
+function sortScheduleBlocks(blocks: ScheduleListBlock[]): ScheduleListBlock[] {
+    return [...blocks].sort((first, second) =>
+        first.startTime.localeCompare(second.startTime)
+    );
 }
 
 function toFixedOccupiedBlocks(blocks: ScheduleListBlock[]): ScheduleListBlock[] {
@@ -635,6 +825,117 @@ async function callScheduleEngine({
 
     if (!response.ok || !result.success) {
         throw new Error(result.error || "Failed to run schedule engine.");
+    }
+
+    return result;
+}
+
+async function callPersistentGenerate({
+    date,
+    mode,
+    tasks,
+    instruction,
+}: {
+    date: string;
+    mode: ScheduleGenerationMode;
+    tasks: SchedulableTask[];
+    instruction: string;
+}): Promise<ScheduleBlocksResponse> {
+    return requestJson<ScheduleBlocksResponse>("/api/schedules/generate", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            date,
+            mode,
+            tasks,
+            instruction,
+        }),
+    });
+}
+
+async function callPersistentRegenerate({
+    date,
+    mode,
+    tasks,
+    instruction,
+}: {
+    date: string;
+    mode: ScheduleGenerationMode;
+    tasks: SchedulableTask[];
+    instruction: string;
+}): Promise<ScheduleBlocksResponse> {
+    return requestJson<ScheduleBlocksResponse>("/api/schedules/regenerate", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            date,
+            mode,
+            tasks,
+            instruction,
+        }),
+    });
+}
+
+async function createMongoBlock({
+    title,
+    date,
+    startTime,
+    endTime,
+    status,
+}: {
+    title: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    status: ScheduleBlockStatus;
+}) {
+    return requestJson<ScheduleBlockResponse>("/api/schedules", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            title,
+            date,
+            startTime,
+            endTime,
+            status,
+        }),
+    });
+}
+
+async function updateMongoBlock(
+    id: string,
+    patch: Partial<Pick<ScheduleBlockAPI, "status">>
+) {
+    return requestJson<ScheduleBlockResponse>(`/api/schedules/${id}`, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(patch),
+    });
+}
+
+async function deleteMongoBlock(id: string) {
+    return requestJson<ScheduleBlockResponse>(`/api/schedules/${id}`, {
+        method: "DELETE",
+    });
+}
+
+async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
+    const response = await fetch(input, init);
+    const result = (await response.json()) as T & {
+        success?: boolean;
+        error?: string;
+    };
+
+    if (!response.ok || result.success === false) {
+        throw new Error(result.error || "Schedule request failed.");
     }
 
     return result;
