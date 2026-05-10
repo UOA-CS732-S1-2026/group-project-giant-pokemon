@@ -3,7 +3,7 @@ const navigationItems = [
   { id: 'goals', label: 'Goals' },
   { id: 'tasks', label: 'Tasks' },
   { id: 'schedule', label: 'Schedule' },
-  { id: 'progress', label: 'Progress' },
+  { id: 'progress', label: 'Productivity Ocean' },
   { id: 'profile', label: 'Profile' },
 ]
 

@@ -145,7 +145,7 @@ function Tasks({ goals, tasks, setTasks }) {
       ),
     )
     setSuccessMessage(
-      'Task completed! Progress will be updated in the Progress section.',
+      'Task completed! Your Productivity Ocean has been updated.',
     )
   }
 

@@ -3,8 +3,8 @@ import AppLayout from './components/layout/AppLayout.jsx'
 import Auth from './pages/Auth.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Goals from './pages/Goals.jsx'
-import Progress from './pages/Progress.jsx'
 import Profile from './pages/Profile.jsx'
+import ProductivityOcean from './pages/ProductivityOcean.jsx'
 import Schedule from './pages/Schedule.jsx'
 import Tasks from './pages/Tasks.jsx'
 
@@ -143,7 +143,7 @@ function App() {
     }
 
     if (currentPage === 'progress') {
-      return <Progress tasks={tasks} />
+      return <ProductivityOcean tasks={tasks} setTasks={setTasks} />
     }
 
     if (currentPage === 'profile') {

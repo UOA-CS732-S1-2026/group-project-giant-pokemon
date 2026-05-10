@@ -3,7 +3,7 @@ const pageTitles = {
   goals: 'Goals',
   tasks: 'Tasks',
   schedule: 'Schedule',
-  progress: 'Progress',
+  progress: 'Productivity Ocean',
   profile: 'Profile',
 }
 
