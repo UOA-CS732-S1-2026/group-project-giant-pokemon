@@ -5,11 +5,10 @@ const UserSchema = new mongoose.Schema(
     name: { type: String, required: true },
 
     email: { type: String, required: true, unique: true },
+    passwordHash: { type: String, required: true },
 
-    passwordHash: { type: String, required: true, select: false },
-
+    // Profile
     role: { type: String, default: "Student" },
-
     mainGoal: { type: String, default: "" },
 
     // Planning Preferences
@@ -24,9 +23,9 @@ const UserSchema = new mongoose.Schema(
     priority: { type: String, default: "Balanced" },
     scheduleStyle: { type: String, default: "Flexible blocks" },
 
-    // Gamification
+    // XP + Streak
     xp: { type: Number, default: 0 },
-    streak: { type: Number, default: 0 }
+    streak: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
