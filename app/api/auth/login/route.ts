@@ -1,4 +1,3 @@
-// app/api/auth/login/route.ts
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import User from "@/models/User";
@@ -10,14 +9,23 @@ export async function POST(req: Request) {
 
   const { email, password } = await req.json();
 
-  const user = await User.findOne({ email });
+  // IMPORTANT: select passwordHash explicitly
+  const user = await User.findOne({ email }).select("+passwordHash");
+
   if (!user) {
-    return NextResponse.json({ message: "Invalid credentials" }, { status: 400 });
+    return NextResponse.json(
+      { message: "Invalid credentials" },
+      { status: 400 }
+    );
   }
 
   const match = await bcrypt.compare(password, user.passwordHash);
+
   if (!match) {
-    return NextResponse.json({ message: "Invalid credentials" }, { status: 400 });
+    return NextResponse.json(
+      { message: "Invalid credentials" },
+      { status: 400 }
+    );
   }
 
   const token = signToken({ id: user._id });
