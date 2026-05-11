@@ -3,6 +3,9 @@ import LevelProgress from '../components/ui/LevelProgress.jsx'
 import OceanScene from '../components/ui/OceanScene.jsx'
 import ProgressBar from '../components/ui/ProgressBar.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
+import {
+  calculateOceanStats,
+} from '../utils/progressCalculations.js'
 
 const badges = [
   {
@@ -97,37 +100,27 @@ function getOceanStatusMessage(health) {
   return 'Your ocean is polluted. Complete tasks to remove rubbish.'
 }
 
-function ProductivityOcean({ tasks, setTasks }) {
-  const totalTasks = tasks.length
-  const completedTasks = tasks.filter((task) => task.status === 'Completed').length
-  const remainingTasks = totalTasks - completedTasks
-  const oceanHealth =
-    totalTasks === 0 ? 100 : Math.round((completedTasks / totalTasks) * 100)
+function ProductivityOcean({ tasks, totalXP, levelInfo }) {
+  const {
+    totalTasks,
+    totalSubtasks,
+    completedTasks,
+    completedSubtasks,
+    remainingTasks,
+    oceanHealth,
+  } = calculateOceanStats(tasks)
   const oceanStatus = getOceanStatus(oceanHealth)
 
   const stats = [
     { label: 'Total Tasks', value: totalTasks },
+    { label: 'Total Subtasks', value: totalSubtasks },
     { label: 'Completed Tasks', value: completedTasks },
-    { label: 'Remaining Tasks', value: remainingTasks },
+    { label: 'Completed Subtasks', value: completedSubtasks },
     { label: 'Ocean Health', value: `${oceanHealth}%` },
+    { label: 'Total XP', value: `${totalXP} XP` },
+    { label: 'Current Level', value: levelInfo.label },
+    { label: 'Next Level XP', value: levelInfo.nextLevelXP },
   ]
-
-  function handleCompleteTask(taskId) {
-    setTasks((currentTasks) =>
-      currentTasks.map((task) =>
-        task.id === taskId
-          ? {
-              ...task,
-              status: 'Completed',
-              subtasks: task.subtasks.map((subtask) => ({
-                ...subtask,
-                completed: true,
-              })),
-            }
-          : task,
-      ),
-    )
-  }
 
   return (
     <div className="space-y-5">
@@ -151,13 +144,16 @@ function ProductivityOcean({ tasks, setTasks }) {
           <p className="mt-1 text-sm text-slate-300">
               {getOceanStatusMessage(oceanHealth)}
             </p>
+            <p className="mt-1 text-xs text-slate-400">
+              {remainingTasks} task units still need work.
+            </p>
           </div>
           <p className="text-sm font-semibold text-blue-200">{oceanStatus}</p>
         </div>
         <ProgressBar value={oceanHealth} />
       </section>
 
-      <OceanScene tasks={tasks} onCompleteTask={handleCompleteTask} />
+      <OceanScene tasks={tasks} />
 
       <section className="rounded-3xl border border-blue-300/20 bg-blue-500/10 p-6 shadow-lg shadow-blue-950/20">
         <h3 className="text-xl font-bold text-white">
@@ -178,8 +174,8 @@ function ProductivityOcean({ tasks, setTasks }) {
           </p>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
-            <StatCard label="Current XP" value="240 XP" />
-            <StatCard label="Level" value="Level 3 Planner" />
+            <StatCard label="Current XP" value={`${totalXP} XP`} />
+            <StatCard label="Level" value={levelInfo.label} />
             <StatCard label="Streak" value="4 days" />
           </div>
         </div>
@@ -217,7 +213,7 @@ function ProductivityOcean({ tasks, setTasks }) {
         </div>
       </section>
 
-      <LevelProgress currentXp={240} nextLevelXp={300} />
+      <LevelProgress currentXp={totalXP} nextLevelXp={levelInfo.nextLevelXP} />
 
       <section className="rounded-3xl border border-white/10 bg-white/10 p-6 shadow-lg shadow-blue-950/20">
         <div className="mb-5">

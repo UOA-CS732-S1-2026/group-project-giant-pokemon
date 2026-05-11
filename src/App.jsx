@@ -7,6 +7,7 @@ import Profile from './pages/Profile.jsx'
 import ProductivityOcean from './pages/ProductivityOcean.jsx'
 import Schedule from './pages/Schedule.jsx'
 import Tasks from './pages/Tasks.jsx'
+import { calculateLevel, calculateOceanHealth } from './utils/progressCalculations.js'
 
 const initialGoals = [
   {
@@ -114,6 +115,10 @@ function App() {
   const [currentPage, setCurrentPage] = useState('dashboard')
   const [goals, setGoals] = useState(initialGoals)
   const [tasks, setTasks] = useState(initialTasks)
+  const [totalXP, setTotalXP] = useState(240)
+
+  const levelInfo = calculateLevel(totalXP)
+  const oceanHealth = calculateOceanHealth(tasks)
 
   function handleAuthSuccess() {
     setIsAuthenticated(true)
@@ -127,7 +132,15 @@ function App() {
 
   function renderPage() {
     if (currentPage === 'dashboard') {
-      return <Dashboard onNavigate={setCurrentPage} />
+      return (
+        <Dashboard
+          onNavigate={setCurrentPage}
+          tasks={tasks}
+          totalXP={totalXP}
+          oceanHealth={oceanHealth}
+          levelInfo={levelInfo}
+        />
+      )
     }
 
     if (currentPage === 'goals') {
@@ -135,7 +148,14 @@ function App() {
     }
 
     if (currentPage === 'tasks') {
-      return <Tasks goals={goals} tasks={tasks} setTasks={setTasks} />
+      return (
+        <Tasks
+          goals={goals}
+          tasks={tasks}
+          setTasks={setTasks}
+          setTotalXP={setTotalXP}
+        />
+      )
     }
 
     if (currentPage === 'schedule') {
@@ -143,7 +163,13 @@ function App() {
     }
 
     if (currentPage === 'progress') {
-      return <ProductivityOcean tasks={tasks} setTasks={setTasks} />
+      return (
+        <ProductivityOcean
+          tasks={tasks}
+          totalXP={totalXP}
+          levelInfo={levelInfo}
+        />
+      )
     }
 
     if (currentPage === 'profile') {

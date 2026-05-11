@@ -1,0 +1,78 @@
+@keyframes floatSlow {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(-2deg);
+  }
+  50% {
+    transform: translate3d(10px, -14px, 0) rotate(3deg);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-2deg);
+  }
+}
+
+@keyframes swim {
+  0% {
+    transform: translate3d(-8px, 0, 0) scaleX(1);
+  }
+  50% {
+    transform: translate3d(14px, -8px, 0) scaleX(1);
+  }
+  100% {
+    transform: translate3d(-8px, 0, 0) scaleX(1);
+  }
+}
+
+@keyframes fadeInPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -18px, 0) scale(0.85);
+  }
+}
+
+@keyframes waveMove {
+  0% {
+    transform: translateX(-18%);
+  }
+  100% {
+    transform: translateX(18%);
+  }
+}
+
+.animate-float-slow {
+  animation: floatSlow 5.5s ease-in-out infinite;
+}
+
+.animate-swim {
+  animation: swim 6s ease-in-out infinite;
+}
+
+.animate-fade-in-pop {
+  animation: fadeInPop 420ms ease-out both;
+}
+
+.animate-fade-out {
+  animation: fadeOut 700ms ease-in forwards;
+}
+
+.animate-wave-move {
+  animation: waveMove 9s ease-in-out infinite alternate;
+}

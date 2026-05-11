@@ -1,12 +1,6 @@
 import ProgressBar from '../components/ui/ProgressBar.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
-
-const stats = [
-  { label: "Today's Tasks", value: '5' },
-  { label: 'Completed', value: '2' },
-  { label: 'Current XP', value: '240' },
-  { label: 'Streak', value: '4 days' },
-]
+import { calculateOceanStats } from '../utils/progressCalculations.js'
 
 const goals = [
   { title: 'Master React Frontend', progress: 65 },
@@ -26,7 +20,15 @@ const quickActions = [
   { label: 'Generate Schedule', page: 'schedule' },
 ]
 
-function Dashboard({ onNavigate }) {
+function Dashboard({ onNavigate, tasks, totalXP, oceanHealth, levelInfo }) {
+  const oceanStats = calculateOceanStats(tasks)
+  const stats = [
+    { label: "Today's Tasks", value: tasks.length },
+    { label: 'Completed', value: oceanStats.completedTasks },
+    { label: 'Current XP', value: totalXP },
+    { label: 'Ocean Health', value: `${oceanHealth}%` },
+  ]
+
   return (
     <div className="space-y-5">
       <section className="rounded-3xl border border-white/10 bg-white/10 p-6 shadow-lg shadow-blue-950/20">
@@ -68,16 +70,16 @@ function Dashboard({ onNavigate }) {
 
         <div className="rounded-3xl border border-white/10 bg-white/10 p-6 shadow-lg shadow-blue-950/20">
           <h3 className="text-xl font-bold text-white">Productivity Ocean</h3>
-          <p className="mt-1 text-sm text-slate-300">Level 3 Planner</p>
+          <p className="mt-1 text-sm text-slate-300">{levelInfo.label}</p>
 
           <div className="my-6 rounded-2xl bg-slate-950/60 p-5">
             <div className="mb-3 flex items-center justify-between">
-              <p className="font-semibold text-white">Next Level</p>
+              <p className="font-semibold text-white">Ocean Health</p>
               <p className="text-sm font-semibold text-blue-200">
-                240 / 300 XP
+                {oceanHealth}%
               </p>
             </div>
-            <ProgressBar value={80} />
+            <ProgressBar value={oceanHealth} />
           </div>
 
           <div className="rounded-2xl border border-blue-300/20 bg-blue-500/10 p-4">

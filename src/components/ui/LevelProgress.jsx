@@ -9,8 +9,9 @@ const levels = [
 ]
 
 function LevelProgress({ currentXp, nextLevelXp }) {
-  const progressValue = Math.round((currentXp / nextLevelXp) * 100)
-  const xpNeeded = nextLevelXp - currentXp
+  const progressValue =
+    nextLevelXp === 0 ? 100 : Math.round((currentXp / nextLevelXp) * 100)
+  const xpNeeded = Math.max(nextLevelXp - currentXp, 0)
 
   return (
     <section className="rounded-3xl border border-white/10 bg-white/10 p-6 shadow-lg shadow-blue-950/20">
@@ -22,7 +23,7 @@ function LevelProgress({ currentXp, nextLevelXp }) {
           </p>
         </div>
         <p className="text-sm font-semibold text-blue-200">
-          {xpNeeded} XP needed to reach Level 4
+          {xpNeeded} XP needed to reach the next level
         </p>
       </div>
 

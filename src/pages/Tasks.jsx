@@ -1,18 +1,22 @@
 import { useState } from 'react'
 import TaskCard from '../components/ui/TaskCard.jsx'
+import {
+  calculateSubtaskXP,
+  calculateTaskXP,
+} from '../utils/progressCalculations.js'
 
 function createEmptyTaskForm(goals) {
   return {
-  title: '',
-  relatedGoal: goals[0]?.title || '',
-  priority: 'Medium',
-  category: 'Study',
-  dueDate: '',
-  duration: 30,
+    title: '',
+    relatedGoal: goals[0]?.title || '',
+    priority: 'Medium',
+    category: 'Study',
+    dueDate: '',
+    duration: 30,
   }
 }
 
-function Tasks({ goals, tasks, setTasks }) {
+function Tasks({ goals, tasks, setTasks, setTotalXP }) {
   const [formData, setFormData] = useState(createEmptyTaskForm(goals))
   const [subtaskText, setSubtaskText] = useState('')
   const [draftSubtasks, setDraftSubtasks] = useState([])
@@ -86,7 +90,10 @@ function Tasks({ goals, tasks, setTasks }) {
       status: isEditing
         ? tasks.find((task) => task.id === editingTaskId).status
         : 'Pending',
-      subtasks: draftSubtasks,
+      subtasks: draftSubtasks.map((subtask) => ({
+        ...subtask,
+        xpAwarded: subtask.xpAwarded || false,
+      })),
     }
 
     if (isEditing) {
@@ -130,40 +137,98 @@ function Tasks({ goals, tasks, setTasks }) {
   }
 
   function handleMarkComplete(taskId) {
-    setTasks((currentTasks) =>
-      currentTasks.map((task) =>
-        task.id === taskId
-          ? {
-              ...task,
-              status: 'Completed',
-              subtasks: task.subtasks.map((subtask) => ({
-                ...subtask,
-                completed: true,
-              })),
-            }
-          : task,
-      ),
-    )
-    setSuccessMessage(
-      'Task completed! Your Productivity Ocean has been updated.',
-    )
+    let earnedXP = 0
+    const updatedTasks = tasks.map((task) => {
+      if (task.id !== taskId) {
+        return task
+      }
+
+      const subtaskXP = calculateSubtaskXP(task)
+      const updatedSubtasks = task.subtasks.map((subtask) => {
+        if (subtask.completed && subtask.xpAwarded) {
+          return subtask
+        }
+
+        if (!subtask.xpAwarded) {
+          earnedXP += subtaskXP
+        }
+
+        return {
+          ...subtask,
+          completed: true,
+          xpAwarded: true,
+        }
+      })
+
+      if (!task.xpAwarded) {
+        earnedXP += calculateTaskXP(task, new Date())
+      }
+
+      return {
+        ...task,
+        status: 'Completed',
+        xpAwarded: true,
+        subtasks: updatedSubtasks,
+      }
+    })
+
+    setTasks(updatedTasks)
+
+    if (earnedXP > 0) {
+      setTotalXP((currentXP) => currentXP + earnedXP)
+    }
+
+    setSuccessMessage('Progress updated! Your Productivity Ocean is recovering.')
   }
 
   function handleToggleSubtask(taskId, subtaskId) {
-    setTasks((currentTasks) =>
-      currentTasks.map((task) =>
-        task.id === taskId
-          ? {
-              ...task,
-              subtasks: task.subtasks.map((subtask) =>
-                subtask.id === subtaskId
-                  ? { ...subtask, completed: !subtask.completed }
-                  : subtask,
-              ),
-            }
-          : task,
-      ),
-    )
+    let earnedXP = 0
+    const updatedTasks = tasks.map((task) => {
+      if (task.id !== taskId) {
+        return task
+      }
+
+      const subtaskXP = calculateSubtaskXP(task)
+      const updatedSubtasks = task.subtasks.map((subtask) => {
+        if (subtask.id !== subtaskId) {
+          return subtask
+        }
+
+        const nextCompleted = !subtask.completed
+
+        if (nextCompleted && !subtask.xpAwarded) {
+          earnedXP += subtaskXP
+        }
+
+        return {
+          ...subtask,
+          completed: nextCompleted,
+          xpAwarded: nextCompleted ? true : subtask.xpAwarded,
+        }
+      })
+      const allSubtasksCompleted =
+        updatedSubtasks.length > 0 &&
+        updatedSubtasks.every((subtask) => subtask.completed)
+
+      if (allSubtasksCompleted && !task.xpAwarded) {
+        earnedXP += calculateTaskXP(task, new Date())
+      }
+
+      return {
+        ...task,
+        status: allSubtasksCompleted ? 'Completed' : 'In Progress',
+        xpAwarded: allSubtasksCompleted ? true : task.xpAwarded,
+        subtasks: updatedSubtasks,
+      }
+    })
+
+    setTasks(updatedTasks)
+
+    if (earnedXP > 0) {
+      setTotalXP((currentXP) => currentXP + earnedXP)
+    }
+
+    setSuccessMessage('Progress updated! Your Productivity Ocean is recovering.')
   }
 
   return (
