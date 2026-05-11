@@ -5,28 +5,25 @@ function OceanItem({
   variant,
   size = 'large',
   delay = 0,
-  position,
   completed = false,
-  exiting = false,
+  onClick,
 }) {
   const itemType = type || variant
   const isLife = itemType === 'life'
   const isSmall = size === 'small'
-  const animationClass = exiting
-    ? 'animate-fade-out'
-    : isLife
-      ? 'animate-swim animate-fade-in-pop'
-      : 'animate-float-slow'
+  const animationClass = isLife
+    ? 'animate-swim animate-fade-in-pop'
+    : 'animate-float-slow'
 
   return (
-    <div
+    <button
+      type="button"
       title={label}
+      onClick={onClick}
       style={{
         animationDelay: `${delay}ms`,
-        left: position?.left,
-        top: position?.top,
       }}
-      className={`absolute flex flex-col items-center justify-center rounded-3xl border text-center shadow-lg shadow-blue-950/20 transition ${
+      className={`flex w-full flex-col items-center justify-center rounded-3xl border text-center shadow-lg shadow-blue-950/20 transition hover:-translate-y-1 hover:border-blue-300/50 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 focus:ring-offset-slate-950 ${
         isSmall ? 'min-h-20 p-3' : 'min-h-28 p-4'
       } ${
         isLife
@@ -45,7 +42,7 @@ function OceanItem({
           Restored
         </span>
       )}
-    </div>
+    </button>
   )
 }
 
