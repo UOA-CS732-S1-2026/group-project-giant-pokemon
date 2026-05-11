@@ -4,60 +4,12 @@ import OceanScene from '../components/ui/OceanScene.jsx'
 import ProgressBar from '../components/ui/ProgressBar.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
 import {
+  calculateAchievements,
   calculateOceanStats,
 } from '../utils/progressCalculations.js'
 
-const badges = [
-  {
-    name: 'First Step',
-    description: 'Complete your first task',
-    unlocked: true,
-    icon: '✓',
-  },
-  {
-    name: 'Goal Getter',
-    description: 'Create 3 goals',
-    unlocked: true,
-    icon: '+',
-  },
-  {
-    name: 'Schedule Starter',
-    description: 'Generate your first schedule',
-    unlocked: true,
-    icon: 'AI',
-  },
-  {
-    name: 'Focus Builder',
-    description: 'Complete 5 subtasks',
-    unlocked: true,
-    icon: '5',
-  },
-  {
-    name: 'Streak Starter',
-    description: 'Maintain a 3-day streak',
-    unlocked: true,
-    icon: '3',
-  },
-  {
-    name: 'Planner Pro',
-    description: 'Complete all scheduled tasks in a day',
-    unlocked: false,
-    icon: 'P',
-  },
-  {
-    name: 'Comeback Mode',
-    description: 'Re-plan a missed task',
-    unlocked: true,
-    icon: 'R',
-  },
-  {
-    name: 'Master Scheduler',
-    description: 'Reach Level 5',
-    unlocked: false,
-    icon: '5',
-  },
-]
-
+// TODO: connect streak to real daily completion history when backend/date persistence is available.
+const currentStreak = 4
 const streakDays = [
   { day: 'Mon', status: 'completed' },
   { day: 'Tue', status: 'completed' },
@@ -68,7 +20,11 @@ const streakDays = [
   { day: 'Sun', status: 'locked' },
 ]
 
-function getOceanStatus(health) {
+function getOceanStatus(health, totalTasks) {
+  if (totalTasks === 0) {
+    return 'Empty Ocean'
+  }
+
   if (health === 100) {
     return 'Thriving'
   }
@@ -84,7 +40,11 @@ function getOceanStatus(health) {
   return 'Polluted'
 }
 
-function getOceanStatusMessage(health) {
+function getOceanStatusMessage(health, totalTasks) {
+  if (totalTasks === 0) {
+    return 'Add tasks to begin restoring your productivity ocean.'
+  }
+
   if (health === 100) {
     return 'Your ocean is clean and thriving!'
   }
@@ -100,26 +60,31 @@ function getOceanStatusMessage(health) {
   return 'Your ocean is polluted. Complete tasks to remove rubbish.'
 }
 
-function ProductivityOcean({ tasks, totalXP, levelInfo }) {
+function ProductivityOcean({ tasks, goals, totalXP, levelInfo }) {
   const {
     totalTasks,
     totalSubtasks,
     completedTasks,
     completedSubtasks,
-    remainingTasks,
+    pendingTasks,
+    pendingSubtasks,
     oceanHealth,
   } = calculateOceanStats(tasks)
-  const oceanStatus = getOceanStatus(oceanHealth)
+  const oceanStatus = getOceanStatus(oceanHealth, totalTasks)
+  // TODO: connect scheduleGenerated to real schedule history when backend/date persistence is available.
+  const achievements = calculateAchievements(tasks, goals, false, currentStreak)
 
   const stats = [
     { label: 'Total Tasks', value: totalTasks },
+    { label: 'Completed Tasks', value: `${completedTasks} / ${totalTasks}` },
+    { label: 'Pending Tasks', value: pendingTasks },
     { label: 'Total Subtasks', value: totalSubtasks },
-    { label: 'Completed Tasks', value: completedTasks },
-    { label: 'Completed Subtasks', value: completedSubtasks },
+    { label: 'Completed Subtasks', value: `${completedSubtasks} / ${totalSubtasks}` },
+    { label: 'Pending Subtasks', value: pendingSubtasks },
     { label: 'Ocean Health', value: `${oceanHealth}%` },
     { label: 'Total XP', value: `${totalXP} XP` },
-    { label: 'Current Level', value: levelInfo.label },
-    { label: 'Next Level XP', value: levelInfo.nextLevelXP },
+    { label: 'Current Level', value: levelInfo.currentLevelLabel },
+    { label: 'Next Level XP', value: levelInfo.nextLevelXP === null ? 'Max Level' : `${levelInfo.nextLevelXP} XP` },
   ]
 
   return (
@@ -131,21 +96,17 @@ function ProductivityOcean({ tasks, totalXP, levelInfo }) {
         </p>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map((stat) => (
-          <StatCard key={stat.label} label={stat.label} value={stat.value} />
-        ))}
-      </section>
+      <OceanScene tasks={tasks} />
 
       <section className="rounded-3xl border border-white/10 bg-white/10 p-6 shadow-lg shadow-blue-950/20">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h3 className="text-xl font-bold text-white">Ocean Health</h3>
-          <p className="mt-1 text-sm text-slate-300">
-              {getOceanStatusMessage(oceanHealth)}
+            <p className="mt-1 text-sm text-slate-300">
+              {getOceanStatusMessage(oceanHealth, totalTasks)}
             </p>
             <p className="mt-1 text-xs text-slate-400">
-              {remainingTasks} task units still need work.
+              {pendingTasks} tasks and {pendingSubtasks} subtasks still need work.
             </p>
           </div>
           <p className="text-sm font-semibold text-blue-200">{oceanStatus}</p>
@@ -153,7 +114,11 @@ function ProductivityOcean({ tasks, totalXP, levelInfo }) {
         <ProgressBar value={oceanHealth} />
       </section>
 
-      <OceanScene tasks={tasks} />
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {stats.map((stat) => (
+          <StatCard key={stat.label} label={stat.label} value={stat.value} />
+        ))}
+      </section>
 
       <section className="rounded-3xl border border-blue-300/20 bg-blue-500/10 p-6 shadow-lg shadow-blue-950/20">
         <h3 className="text-xl font-bold text-white">
@@ -175,8 +140,8 @@ function ProductivityOcean({ tasks, totalXP, levelInfo }) {
 
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
             <StatCard label="Current XP" value={`${totalXP} XP`} />
-            <StatCard label="Level" value={levelInfo.label} />
-            <StatCard label="Streak" value="4 days" />
+            <StatCard label="Level" value={levelInfo.currentLevelLabel} />
+            <StatCard label="Streak" value={`${currentStreak} days`} />
           </div>
         </div>
 
@@ -213,7 +178,7 @@ function ProductivityOcean({ tasks, totalXP, levelInfo }) {
         </div>
       </section>
 
-      <LevelProgress currentXp={totalXP} nextLevelXp={levelInfo.nextLevelXP} />
+      <LevelProgress totalXP={totalXP} levelInfo={levelInfo} />
 
       <section className="rounded-3xl border border-white/10 bg-white/10 p-6 shadow-lg shadow-blue-950/20">
         <div className="mb-5">
@@ -224,7 +189,7 @@ function ProductivityOcean({ tasks, totalXP, levelInfo }) {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          {badges.map((badge) => (
+          {achievements.map((badge) => (
             <BadgeCard key={badge.name} badge={badge} />
           ))}
         </div>

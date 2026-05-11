@@ -1,9 +1,5 @@
 import { useState } from 'react'
 import TaskCard from '../components/ui/TaskCard.jsx'
-import {
-  calculateSubtaskXP,
-  calculateTaskXP,
-} from '../utils/progressCalculations.js'
 
 function createEmptyTaskForm(goals) {
   return {
@@ -16,7 +12,7 @@ function createEmptyTaskForm(goals) {
   }
 }
 
-function Tasks({ goals, tasks, setTasks, setTotalXP }) {
+function Tasks({ goals, tasks, setTasks }) {
   const [formData, setFormData] = useState(createEmptyTaskForm(goals))
   const [subtaskText, setSubtaskText] = useState('')
   const [draftSubtasks, setDraftSubtasks] = useState([])
@@ -83,17 +79,34 @@ function Tasks({ goals, tasks, setTasks, setTotalXP }) {
       return
     }
 
+    const existingTask = isEditing
+      ? tasks.find((task) => task.id === editingTaskId)
+      : null
+    const allDraftSubtasksCompleted =
+      draftSubtasks.length > 0 &&
+      draftSubtasks.every((subtask) => subtask.completed)
+    const hasCompletedDraftSubtask = draftSubtasks.some(
+      (subtask) => subtask.completed,
+    )
+    const nextStatus =
+      draftSubtasks.length > 0
+        ? allDraftSubtasksCompleted
+          ? 'Completed'
+          : hasCompletedDraftSubtask || existingTask?.status === 'Completed'
+            ? 'In Progress'
+            : existingTask?.status || 'Pending'
+        : existingTask?.status || 'Pending'
+
     const taskToSave = {
       ...formData,
       title: formData.title.trim(),
       duration: Number(formData.duration),
-      status: isEditing
-        ? tasks.find((task) => task.id === editingTaskId).status
-        : 'Pending',
-      subtasks: draftSubtasks.map((subtask) => ({
-        ...subtask,
-        xpAwarded: subtask.xpAwarded || false,
-      })),
+      status: nextStatus,
+      completedAt:
+        nextStatus === 'Completed'
+          ? existingTask?.completedAt || new Date().toISOString()
+          : null,
+      subtasks: draftSubtasks,
     }
 
     if (isEditing) {
@@ -137,96 +150,57 @@ function Tasks({ goals, tasks, setTasks, setTotalXP }) {
   }
 
   function handleMarkComplete(taskId) {
-    let earnedXP = 0
+    const completedAt = new Date().toISOString()
     const updatedTasks = tasks.map((task) => {
       if (task.id !== taskId) {
         return task
-      }
-
-      const subtaskXP = calculateSubtaskXP(task)
-      const updatedSubtasks = task.subtasks.map((subtask) => {
-        if (subtask.completed && subtask.xpAwarded) {
-          return subtask
-        }
-
-        if (!subtask.xpAwarded) {
-          earnedXP += subtaskXP
-        }
-
-        return {
-          ...subtask,
-          completed: true,
-          xpAwarded: true,
-        }
-      })
-
-      if (!task.xpAwarded) {
-        earnedXP += calculateTaskXP(task, new Date())
       }
 
       return {
         ...task,
         status: 'Completed',
-        xpAwarded: true,
-        subtasks: updatedSubtasks,
+        completedAt,
+        subtasks: task.subtasks.map((subtask) => ({
+          ...subtask,
+          completed: true,
+        })),
       }
     })
 
     setTasks(updatedTasks)
 
-    if (earnedXP > 0) {
-      setTotalXP((currentXP) => currentXP + earnedXP)
-    }
-
     setSuccessMessage('Progress updated! Your Productivity Ocean is recovering.')
   }
 
   function handleToggleSubtask(taskId, subtaskId) {
-    let earnedXP = 0
     const updatedTasks = tasks.map((task) => {
       if (task.id !== taskId) {
         return task
       }
 
-      const subtaskXP = calculateSubtaskXP(task)
       const updatedSubtasks = task.subtasks.map((subtask) => {
         if (subtask.id !== subtaskId) {
           return subtask
         }
 
-        const nextCompleted = !subtask.completed
-
-        if (nextCompleted && !subtask.xpAwarded) {
-          earnedXP += subtaskXP
-        }
-
         return {
           ...subtask,
-          completed: nextCompleted,
-          xpAwarded: nextCompleted ? true : subtask.xpAwarded,
+          completed: !subtask.completed,
         }
       })
       const allSubtasksCompleted =
         updatedSubtasks.length > 0 &&
         updatedSubtasks.every((subtask) => subtask.completed)
 
-      if (allSubtasksCompleted && !task.xpAwarded) {
-        earnedXP += calculateTaskXP(task, new Date())
-      }
-
       return {
         ...task,
         status: allSubtasksCompleted ? 'Completed' : 'In Progress',
-        xpAwarded: allSubtasksCompleted ? true : task.xpAwarded,
+        completedAt: allSubtasksCompleted ? task.completedAt || new Date().toISOString() : null,
         subtasks: updatedSubtasks,
       }
     })
 
     setTasks(updatedTasks)
-
-    if (earnedXP > 0) {
-      setTotalXP((currentXP) => currentXP + earnedXP)
-    }
 
     setSuccessMessage('Progress updated! Your Productivity Ocean is recovering.')
   }

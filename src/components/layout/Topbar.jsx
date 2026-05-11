@@ -7,7 +7,7 @@ const pageTitles = {
   profile: 'Profile',
 }
 
-function Topbar({ currentPage, onProfileClick }) {
+function Topbar({ currentPage, onProfileClick, totalXP }) {
   return (
     <header className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/10 p-5 shadow-lg shadow-blue-950/20 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -21,7 +21,7 @@ function Topbar({ currentPage, onProfileClick }) {
 
       <div className="flex items-center gap-3">
         <span className="rounded-full bg-blue-500/20 px-4 py-2 text-sm font-semibold text-blue-100">
-          240 XP
+          {totalXP} XP
         </span>
         <button
           type="button"

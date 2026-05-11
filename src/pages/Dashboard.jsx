@@ -25,7 +25,7 @@ function Dashboard({ onNavigate, tasks, totalXP, oceanHealth, levelInfo }) {
   const stats = [
     { label: "Today's Tasks", value: tasks.length },
     { label: 'Completed', value: oceanStats.completedTasks },
-    { label: 'Current XP', value: totalXP },
+    { label: 'Current XP', value: `${totalXP} XP` },
     { label: 'Ocean Health', value: `${oceanHealth}%` },
   ]
 
@@ -70,7 +70,9 @@ function Dashboard({ onNavigate, tasks, totalXP, oceanHealth, levelInfo }) {
 
         <div className="rounded-3xl border border-white/10 bg-white/10 p-6 shadow-lg shadow-blue-950/20">
           <h3 className="text-xl font-bold text-white">Productivity Ocean</h3>
-          <p className="mt-1 text-sm text-slate-300">{levelInfo.label}</p>
+          <p className="mt-1 text-sm text-slate-300">
+            {levelInfo.currentLevelLabel}
+          </p>
 
           <div className="my-6 rounded-2xl bg-slate-950/60 p-5">
             <div className="mb-3 flex items-center justify-between">

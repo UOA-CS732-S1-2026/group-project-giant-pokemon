@@ -6,12 +6,17 @@ const levels = [
   'Level 3 Planner',
   'Level 4 Achiever',
   'Level 5 Master Scheduler',
+  'Level 6 Ocean Guardian',
 ]
 
-function LevelProgress({ currentXp, nextLevelXp }) {
-  const progressValue =
-    nextLevelXp === 0 ? 100 : Math.round((currentXp / nextLevelXp) * 100)
-  const xpNeeded = Math.max(nextLevelXp - currentXp, 0)
+function LevelProgress({ totalXP, levelInfo }) {
+  const progressValue = levelInfo.levelProgressPercent
+  const nextLevelText =
+    levelInfo.nextLevelXP === null ? 'Max Level' : `${levelInfo.nextLevelXP} XP`
+  const neededText =
+    levelInfo.nextLevelXP === null
+      ? 'Highest level reached'
+      : `${levelInfo.xpNeededForNextLevel} XP needed to reach the next level`
 
   return (
     <section className="rounded-3xl border border-white/10 bg-white/10 p-6 shadow-lg shadow-blue-950/20">
@@ -19,19 +24,19 @@ function LevelProgress({ currentXp, nextLevelXp }) {
         <div>
           <h3 className="text-xl font-bold text-white">Level Progress</h3>
           <p className="mt-1 text-sm text-slate-300">
-            {currentXp} / {nextLevelXp} XP
+            {totalXP} / {nextLevelText}
           </p>
         </div>
         <p className="text-sm font-semibold text-blue-200">
-          {xpNeeded} XP needed to reach the next level
+          {neededText}
         </p>
       </div>
 
       <ProgressBar value={progressValue} />
 
-      <div className="mt-5 grid gap-2 sm:grid-cols-5">
+      <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {levels.map((level) => {
-          const isCurrentLevel = level === 'Level 3 Planner'
+          const isCurrentLevel = level === levelInfo.currentLevelLabel
 
           return (
             <div

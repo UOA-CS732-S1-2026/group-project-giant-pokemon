@@ -7,7 +7,11 @@ import Profile from './pages/Profile.jsx'
 import ProductivityOcean from './pages/ProductivityOcean.jsx'
 import Schedule from './pages/Schedule.jsx'
 import Tasks from './pages/Tasks.jsx'
-import { calculateLevel, calculateOceanHealth } from './utils/progressCalculations.js'
+import {
+  calculateLevel,
+  calculateOceanHealth,
+  calculateTotalXP,
+} from './utils/progressCalculations.js'
 
 const initialGoals = [
   {
@@ -115,8 +119,8 @@ function App() {
   const [currentPage, setCurrentPage] = useState('dashboard')
   const [goals, setGoals] = useState(initialGoals)
   const [tasks, setTasks] = useState(initialTasks)
-  const [totalXP, setTotalXP] = useState(240)
 
+  const totalXP = calculateTotalXP(tasks)
   const levelInfo = calculateLevel(totalXP)
   const oceanHealth = calculateOceanHealth(tasks)
 
@@ -153,7 +157,6 @@ function App() {
           goals={goals}
           tasks={tasks}
           setTasks={setTasks}
-          setTotalXP={setTotalXP}
         />
       )
     }
@@ -166,6 +169,7 @@ function App() {
       return (
         <ProductivityOcean
           tasks={tasks}
+          goals={goals}
           totalXP={totalXP}
           levelInfo={levelInfo}
         />
@@ -173,7 +177,7 @@ function App() {
     }
 
     if (currentPage === 'profile') {
-      return <Profile goals={goals} tasks={tasks} />
+      return <Profile goals={goals} tasks={tasks} totalXP={totalXP} levelInfo={levelInfo} />
     }
 
     return <PlaceholderPage message="Page coming next" />
@@ -185,6 +189,7 @@ function App() {
         currentPage={currentPage}
         onPageChange={setCurrentPage}
         onLogout={handleLogout}
+        totalXP={totalXP}
       >
         {renderPage()}
       </AppLayout>

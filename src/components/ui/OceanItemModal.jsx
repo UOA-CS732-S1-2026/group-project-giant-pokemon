@@ -3,8 +3,12 @@ function OceanItemModal({ item, onClose }) {
     return null
   }
 
-  const isLife = item.type === 'life'
-  const statusText = isLife ? 'Restoring ocean life' : 'Polluting the ocean'
+  const isLife = item.iconType === 'life'
+  const statusText = item.completed ? 'Completed' : 'Pending'
+  const oceanStatusText = isLife ? 'Restoring ocean life' : 'Polluting the ocean'
+  const explanationText = item.completed
+    ? 'This item has restored marine life in your ocean.'
+    : 'This item is still adding pollution to your ocean.'
 
   return (
     <div
@@ -28,10 +32,12 @@ function OceanItemModal({ item, onClose }) {
             >
               {item.icon}
             </div>
-            <h3 className="text-2xl font-bold text-white">{item.taskTitle}</h3>
-            {item.subtaskTitle && (
+            <h3 className="text-2xl font-bold text-white">
+              {item.title}
+            </h3>
+            {item.type === 'subtask' && (
               <p className="mt-2 text-sm font-semibold text-blue-200">
-                Subtask: {item.subtaskTitle}
+                Parent task: {item.parentTaskTitle}
               </p>
             )}
           </div>
@@ -55,15 +61,21 @@ function OceanItemModal({ item, onClose }) {
             }`}
           >
             <p className="font-semibold">Status</p>
-            <p className="mt-1">{statusText}</p>
+            <p className="mt-1">
+              {statusText} - {oceanStatusText}
+            </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
+            <Detail label="Item type" value={item.type === 'subtask' ? 'Subtask' : 'Task'} />
+            <Detail label="Related goal" value={item.relatedGoal} />
             <Detail label="Priority" value={item.priority} />
             <Detail label="Category" value={item.category} />
             <Detail label="Due date" value={item.dueDate} />
-            <Detail label="Type" value={item.subtaskTitle ? 'Subtask' : 'Task'} />
+            <Detail label="XP value" value={`${item.xpValue || 0} XP`} />
           </div>
+
+          <Detail label="Explanation" value={explanationText} />
 
           <Detail
             label="Description"

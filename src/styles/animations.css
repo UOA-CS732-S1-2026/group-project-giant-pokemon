@@ -1,12 +1,12 @@
 @keyframes floatSlow {
   0% {
-    transform: translate3d(0, 0, 0) rotate(-2deg);
+    transform: translate3d(0, 0, 0);
   }
   50% {
-    transform: translate3d(10px, -14px, 0) rotate(3deg);
+    transform: translate3d(8px, -12px, 0);
   }
   100% {
-    transform: translate3d(0, 0, 0) rotate(-2deg);
+    transform: translate3d(0, 0, 0);
   }
 }
 
@@ -67,6 +67,12 @@
 
 .animate-fade-in-pop {
   animation: fadeInPop 420ms ease-out both;
+}
+
+.animate-swim.animate-fade-in-pop {
+  animation:
+    fadeInPop 420ms ease-out both,
+    swim 6s ease-in-out 420ms infinite;
 }
 
 .animate-fade-out {

@@ -18,7 +18,7 @@ const initialPreferences = {
   scheduleStyle: 'Flexible blocks',
 }
 
-function Profile({ goals, tasks }) {
+function Profile({ goals, tasks, totalXP, levelInfo }) {
   const [savedProfile, setSavedProfile] = useState(initialProfile)
   const [profileForm, setProfileForm] = useState(initialProfile)
   const [preferences, setPreferences] = useState(initialPreferences)
@@ -398,13 +398,13 @@ function Profile({ goals, tasks }) {
           </h3>
           <p className="mt-1 text-sm text-slate-300">{savedProfile.roleFocus}</p>
           <p className="mt-1 text-sm font-semibold text-blue-200">
-            Level 3 Planner
+            {levelInfo.currentLevelLabel}
           </p>
 
           <div className="mt-6 grid gap-3 text-left">
             <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
               <p className="text-sm text-slate-400">XP</p>
-              <p className="mt-1 text-lg font-bold text-white">240 XP</p>
+              <p className="mt-1 text-lg font-bold text-white">{totalXP} XP</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
               <p className="text-sm text-slate-400">Streak</p>
