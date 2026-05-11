@@ -1,36 +1,24 @@
 import { useState } from 'react'
 
-const initialProfile = {
-  fullName: 'Shardul Anagal',
-  email: 'shardul@example.com',
-  roleFocus: 'Student',
-  mainGoal: 'Complete COMPSCI 732 Project',
-}
-
-const initialPreferences = {
-  preferredStartTime: '09:00',
-  preferredEndTime: '17:00',
-  workloadCapacity: 'Balanced',
-  focusStyle: 'Deep Work',
-  breakPreference: '15 minutes',
-  motivationStyle: 'Encouraging',
-  priorityPreference: 'Balanced',
-  scheduleStyle: 'Flexible blocks',
-}
-
-function Profile({ goals, tasks, totalXP, levelInfo }) {
-  const [savedProfile, setSavedProfile] = useState(initialProfile)
-  const [profileForm, setProfileForm] = useState(initialProfile)
-  const [preferences, setPreferences] = useState(initialPreferences)
-  const [avatarPreview, setAvatarPreview] = useState('')
+function Profile({
+  userProfile,
+  setUserProfile,
+  userInitials,
+  goalStats,
+  taskStats,
+  totalXP,
+  levelInfo,
+  weeklyStreak,
+}) {
+  const [profileForm, setProfileForm] = useState({
+    fullName: userProfile.fullName,
+    email: userProfile.email,
+    role: userProfile.role,
+    mainGoal: userProfile.mainGoal,
+  })
+  const [preferences, setPreferences] = useState(userProfile.preferences)
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
-
-  const activeGoals = Math.max(3, goals.length)
-  const activeTasks = Math.max(
-    5,
-    tasks.filter((task) => task.status !== 'Completed').length,
-  )
 
   function handleProfileChange(event) {
     const { name, value } = event.target
@@ -50,19 +38,6 @@ function Profile({ goals, tasks, totalXP, levelInfo }) {
     }))
   }
 
-  function getInitials(name) {
-    const nameParts = name.trim().split(' ').filter(Boolean)
-
-    if (nameParts.length === 0) {
-      return 'SA'
-    }
-
-    return nameParts
-      .slice(0, 2)
-      .map((part) => part[0].toUpperCase())
-      .join('')
-  }
-
   function handleAvatarChange(event) {
     const file = event.target.files[0]
 
@@ -70,13 +45,19 @@ function Profile({ goals, tasks, totalXP, levelInfo }) {
       return
     }
 
-    setAvatarPreview(URL.createObjectURL(file))
+    setUserProfile((currentProfile) => ({
+      ...currentProfile,
+      avatarImage: URL.createObjectURL(file),
+    }))
     setSuccessMessage('')
     setErrorMessage('')
   }
 
   function handleRemovePhoto() {
-    setAvatarPreview('')
+    setUserProfile((currentProfile) => ({
+      ...currentProfile,
+      avatarImage: '',
+    }))
   }
 
   function validateProfile() {
@@ -106,12 +87,14 @@ function Profile({ goals, tasks, totalXP, levelInfo }) {
       return
     }
 
-    setSavedProfile({
+    setUserProfile((currentProfile) => ({
+      ...currentProfile,
       fullName: profileForm.fullName.trim(),
       email: profileForm.email.trim(),
-      roleFocus: profileForm.roleFocus.trim(),
+      role: profileForm.role.trim(),
       mainGoal: profileForm.mainGoal.trim(),
-    })
+      preferences,
+    }))
     setErrorMessage('')
     setSuccessMessage('Profile and preferences saved successfully.')
   }
@@ -182,8 +165,8 @@ function Profile({ goals, tasks, totalXP, levelInfo }) {
                 </span>
                 <input
                   type="text"
-                  name="roleFocus"
-                  value={profileForm.roleFocus}
+                  name="role"
+                  value={profileForm.role}
                   onChange={handleProfileChange}
                   className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-white outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30"
                 />
@@ -360,15 +343,15 @@ function Profile({ goals, tasks, totalXP, levelInfo }) {
         </form>
 
         <aside className="h-fit rounded-3xl border border-white/10 bg-white/10 p-6 text-center shadow-lg shadow-blue-950/20 xl:sticky xl:top-6">
-          {avatarPreview ? (
+          {userProfile.avatarImage ? (
             <img
-              src={avatarPreview}
+              src={userProfile.avatarImage}
               alt="Profile preview"
               className="mx-auto h-24 w-24 rounded-full border-4 border-blue-400/40 object-cover shadow-lg shadow-blue-500/30"
             />
           ) : (
             <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-blue-500 text-2xl font-bold text-white shadow-lg shadow-blue-500/30">
-              {getInitials(savedProfile.fullName)}
+              {userInitials}
             </div>
           )}
 
@@ -382,7 +365,7 @@ function Profile({ goals, tasks, totalXP, levelInfo }) {
                 className="hidden"
               />
             </label>
-            {avatarPreview && (
+            {userProfile.avatarImage && (
               <button
                 type="button"
                 onClick={handleRemovePhoto}
@@ -394,9 +377,9 @@ function Profile({ goals, tasks, totalXP, levelInfo }) {
           </div>
 
           <h3 className="mt-5 text-xl font-bold text-white">
-            {savedProfile.fullName}
+            {userProfile.fullName}
           </h3>
-          <p className="mt-1 text-sm text-slate-300">{savedProfile.roleFocus}</p>
+          <p className="mt-1 text-sm text-slate-300">{userProfile.role}</p>
           <p className="mt-1 text-sm font-semibold text-blue-200">
             {levelInfo.currentLevelLabel}
           </p>
@@ -408,18 +391,20 @@ function Profile({ goals, tasks, totalXP, levelInfo }) {
             </div>
             <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
               <p className="text-sm text-slate-400">Streak</p>
-              <p className="mt-1 text-lg font-bold text-white">4 day streak</p>
+              <p className="mt-1 text-lg font-bold text-white">
+                {weeklyStreak} day streak
+              </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
               <p className="text-sm text-slate-400">Active goals</p>
               <p className="mt-1 text-lg font-bold text-white">
-                {activeGoals} active goals
+                {goalStats.activeGoals} active goals
               </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
               <p className="text-sm text-slate-400">Active tasks</p>
               <p className="mt-1 text-lg font-bold text-white">
-                {activeTasks} active tasks
+                {taskStats.activeTasks} active tasks
               </p>
             </div>
           </div>

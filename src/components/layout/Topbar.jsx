@@ -7,7 +7,7 @@ const pageTitles = {
   profile: 'Profile',
 }
 
-function Topbar({ currentPage, onProfileClick, totalXP }) {
+function Topbar({ currentPage, onProfileClick, totalXP, userProfile, userInitials }) {
   return (
     <header className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/10 p-5 shadow-lg shadow-blue-950/20 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -26,10 +26,18 @@ function Topbar({ currentPage, onProfileClick, totalXP }) {
         <button
           type="button"
           onClick={onProfileClick}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white shadow-lg shadow-blue-500/30 transition hover:bg-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 focus:ring-offset-slate-950"
+          className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-blue-500 text-sm font-bold text-white shadow-lg shadow-blue-500/30 transition hover:bg-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 focus:ring-offset-slate-950"
           aria-label="Open profile"
         >
-          SA
+          {userProfile.avatarImage ? (
+            <img
+              src={userProfile.avatarImage}
+              alt="Profile"
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            userInitials
+          )}
         </button>
       </div>
     </header>

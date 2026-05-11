@@ -1,18 +1,5 @@
 import ProgressBar from '../components/ui/ProgressBar.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
-import { calculateOceanStats } from '../utils/progressCalculations.js'
-
-const goals = [
-  { title: 'Master React Frontend', progress: 65 },
-  { title: 'Complete COMPSCI 732 Project', progress: 45 },
-]
-
-const scheduleItems = [
-  { time: '9:00 AM', task: 'Review project requirements' },
-  { time: '10:30 AM', task: 'Build dashboard layout' },
-  { time: '1:00 PM', task: 'Work on task management UI' },
-  { time: '3:00 PM', task: 'Schedule generation prototype' },
-]
 
 const quickActions = [
   { label: 'Add Goal', page: 'goals' },
@@ -20,19 +7,50 @@ const quickActions = [
   { label: 'Generate Schedule', page: 'schedule' },
 ]
 
-function Dashboard({ onNavigate, tasks, totalXP, oceanHealth, levelInfo }) {
-  const oceanStats = calculateOceanStats(tasks)
+function getFirstName(fullName) {
+  return fullName.trim().split(' ')[0] || 'there'
+}
+
+function Dashboard({
+  onNavigate,
+  userProfile,
+  goals,
+  taskStats,
+  goalStats,
+  tasks,
+  generatedSchedule,
+  totalXP,
+  oceanHealth,
+  levelInfo,
+  weeklyStreak,
+}) {
+  const scheduleItems =
+    generatedSchedule.length > 0
+      ? generatedSchedule.map((block) => ({
+          time: block.timeRange,
+          task: block.title,
+        }))
+      : tasks
+          .filter((task) => task.status !== 'Completed')
+          .slice(0, 4)
+          .map((task) => ({
+            time: `${task.duration} min`,
+            task: task.title,
+          }))
+
   const stats = [
-    { label: "Today's Tasks", value: tasks.length },
-    { label: 'Completed', value: oceanStats.completedTasks },
+    { label: "Today's Tasks", value: taskStats.activeTasks },
+    { label: 'Completed', value: taskStats.completedTasks },
     { label: 'Current XP', value: `${totalXP} XP` },
-    { label: 'Ocean Health', value: `${oceanHealth}%` },
+    { label: 'Active Goals', value: goalStats.activeGoals },
   ]
 
   return (
     <div className="space-y-5">
       <section className="rounded-3xl border border-white/10 bg-white/10 p-6 shadow-lg shadow-blue-950/20">
-        <h2 className="text-3xl font-bold text-white">Welcome back, Shardul</h2>
+        <h2 className="text-3xl font-bold text-white">
+          Welcome back, {getFirstName(userProfile.fullName)}
+        </h2>
         <p className="mt-2 text-slate-300">
           Here is your goal-driven plan for today.
         </p>
@@ -54,7 +72,11 @@ function Dashboard({ onNavigate, tasks, totalXP, oceanHealth, levelInfo }) {
           </div>
 
           <div className="space-y-5">
-            {goals.map((goal) => (
+            {goals.length === 0 ? (
+              <p className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-300">
+                Add a goal to start tracking progress.
+              </p>
+            ) : goals.slice(0, 4).map((goal) => (
               <div key={goal.title}>
                 <div className="mb-2 flex items-center justify-between gap-4">
                   <p className="font-semibold text-white">{goal.title}</p>
@@ -86,7 +108,7 @@ function Dashboard({ onNavigate, tasks, totalXP, oceanHealth, levelInfo }) {
 
           <div className="rounded-2xl border border-blue-300/20 bg-blue-500/10 p-4">
             <p className="text-sm font-medium text-blue-100">
-              Keep your 4 day streak alive by completing one more task today.
+              Keep your {weeklyStreak} day streak alive by completing one more task today.
             </p>
           </div>
         </div>

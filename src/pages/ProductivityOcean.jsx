@@ -3,22 +3,6 @@ import LevelProgress from '../components/ui/LevelProgress.jsx'
 import OceanScene from '../components/ui/OceanScene.jsx'
 import ProgressBar from '../components/ui/ProgressBar.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
-import {
-  calculateAchievements,
-  calculateOceanStats,
-} from '../utils/progressCalculations.js'
-
-// TODO: connect streak to real daily completion history when backend/date persistence is available.
-const currentStreak = 4
-const streakDays = [
-  { day: 'Mon', status: 'completed' },
-  { day: 'Tue', status: 'completed' },
-  { day: 'Wed', status: 'completed' },
-  { day: 'Thu', status: 'completed' },
-  { day: 'Fri', status: 'active' },
-  { day: 'Sat', status: 'locked' },
-  { day: 'Sun', status: 'locked' },
-]
 
 function getOceanStatus(health, totalTasks) {
   if (totalTasks === 0) {
@@ -60,7 +44,16 @@ function getOceanStatusMessage(health, totalTasks) {
   return 'Your ocean is polluted. Complete tasks to remove rubbish.'
 }
 
-function ProductivityOcean({ tasks, goals, totalXP, levelInfo }) {
+function ProductivityOcean({
+  tasks,
+  taskStats,
+  totalXP,
+  levelInfo,
+  oceanHealth,
+  achievements,
+  streakDays,
+  weeklyStreak,
+}) {
   const {
     totalTasks,
     totalSubtasks,
@@ -68,11 +61,8 @@ function ProductivityOcean({ tasks, goals, totalXP, levelInfo }) {
     completedSubtasks,
     pendingTasks,
     pendingSubtasks,
-    oceanHealth,
-  } = calculateOceanStats(tasks)
+  } = taskStats
   const oceanStatus = getOceanStatus(oceanHealth, totalTasks)
-  // TODO: connect scheduleGenerated to real schedule history when backend/date persistence is available.
-  const achievements = calculateAchievements(tasks, goals, false, currentStreak)
 
   const stats = [
     { label: 'Total Tasks', value: totalTasks },
@@ -84,7 +74,7 @@ function ProductivityOcean({ tasks, goals, totalXP, levelInfo }) {
     { label: 'Ocean Health', value: `${oceanHealth}%` },
     { label: 'Total XP', value: `${totalXP} XP` },
     { label: 'Current Level', value: levelInfo.currentLevelLabel },
-    { label: 'Next Level XP', value: levelInfo.nextLevelXP === null ? 'Max Level' : `${levelInfo.nextLevelXP} XP` },
+    { label: 'Next Level XP', value: levelInfo.isMaxLevel ? 'Max Level' : `${levelInfo.nextLevelXP} XP` },
   ]
 
   return (
@@ -141,7 +131,7 @@ function ProductivityOcean({ tasks, goals, totalXP, levelInfo }) {
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
             <StatCard label="Current XP" value={`${totalXP} XP`} />
             <StatCard label="Level" value={levelInfo.currentLevelLabel} />
-            <StatCard label="Streak" value={`${currentStreak} days`} />
+            <StatCard label="Streak" value={`${weeklyStreak} days`} />
           </div>
         </div>
 

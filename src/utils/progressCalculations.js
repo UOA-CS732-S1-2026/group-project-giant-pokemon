@@ -1,3 +1,16 @@
+export function getInitials(fullName) {
+  const nameParts = fullName.trim().split(' ').filter(Boolean)
+
+  if (nameParts.length === 0) {
+    return 'U'
+  }
+
+  return nameParts
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('')
+}
+
 export function getBaseXP(priority) {
   const xpByPriority = {
     Low: 10,
@@ -72,7 +85,7 @@ export function calculateTaskProgress(task) {
 
 export function calculateOceanHealth(tasks) {
   if (tasks.length === 0) {
-    return 100
+    return 0
   }
 
   const progressTotal = tasks.reduce(
@@ -121,7 +134,7 @@ export function flattenOceanItems(tasks) {
   })
 }
 
-export function calculateOceanStats(tasks) {
+export function calculateTaskStats(tasks) {
   const totalTasks = tasks.length
   const totalSubtasks = tasks.reduce(
     (total, task) => total + (task.subtasks || []).length,
@@ -137,26 +150,57 @@ export function calculateOceanStats(tasks) {
   )
   const totalItems = totalTasks + totalSubtasks
   const completedItems = completedTasks + completedSubtasks
-  const oceanHealth = calculateOceanHealth(tasks)
+  const inProgressTasks = tasks.filter(
+    (task) => task.status === 'In Progress',
+  ).length
 
   return {
     totalTasks,
     completedTasks,
     pendingTasks: totalTasks - completedTasks,
+    inProgressTasks,
     totalSubtasks,
     completedSubtasks,
     pendingSubtasks: totalSubtasks - completedSubtasks,
+    activeTasks: totalTasks - completedTasks,
     totalItems,
     completedItems,
     pendingItems: totalItems - completedItems,
-    oceanHealth,
+    oceanHealth: calculateOceanHealth(tasks),
+    completionRate:
+      totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100),
     taskCompletionRate:
-      totalTasks === 0 ? 100 : Math.round((completedTasks / totalTasks) * 100),
+      totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100),
     subtaskCompletionRate:
       totalSubtasks === 0
-        ? 100
+        ? 0
         : Math.round((completedSubtasks / totalSubtasks) * 100),
   }
+}
+
+export function calculateGoalStats(goals) {
+  const totalGoals = goals.length
+  const shortTermGoals = goals.filter((goal) => goal.type === 'Short-term').length
+  const longTermGoals = goals.filter((goal) => goal.type === 'Long-term').length
+  const averageGoalProgress =
+    totalGoals === 0
+      ? 0
+      : Math.round(
+          goals.reduce((total, goal) => total + Number(goal.progress || 0), 0) /
+            totalGoals,
+        )
+
+  return {
+    totalGoals,
+    shortTermGoals,
+    longTermGoals,
+    averageGoalProgress,
+    activeGoals: totalGoals,
+  }
+}
+
+export function calculateOceanStats(tasks) {
+  return calculateTaskStats(tasks)
 }
 
 export function calculateTotalXP(tasks) {
@@ -200,6 +244,7 @@ export function calculateLevel(totalXP) {
     nextLevelXP,
     xpIntoCurrentLevel: totalXP - currentLevel.startXP,
     xpNeededForNextLevel,
+    isMaxLevel: nextLevelXP === null,
     levelProgressPercent:
       nextLevelXP === null
         ? 100
@@ -207,27 +252,30 @@ export function calculateLevel(totalXP) {
   }
 }
 
-export function calculateAchievements(
+export function calculateAchievements({
   tasks,
   goals = [],
+  totalXP = 0,
+  levelInfo,
+  oceanHealth = calculateOceanHealth(tasks),
   scheduleGenerated = false,
-  streak = 4,
-) {
-  const stats = calculateOceanStats(tasks)
-  const totalXP = calculateTotalXP(tasks)
-  const level = calculateLevel(totalXP)
+  streakDays = 0,
+}) {
+  const taskStats = calculateTaskStats(tasks)
+  const goalStats = calculateGoalStats(goals)
+  const level = levelInfo || calculateLevel(totalXP)
 
   return [
     {
       name: 'First Step',
       description: 'Complete your first task',
-      unlocked: stats.completedTasks >= 1,
+      unlocked: taskStats.completedTasks >= 1,
       icon: '✓',
     },
     {
       name: 'Goal Getter',
       description: 'Create 3 goals',
-      unlocked: goals.length >= 3,
+      unlocked: goalStats.totalGoals >= 3,
       icon: '+',
     },
     {
@@ -239,25 +287,27 @@ export function calculateAchievements(
     {
       name: 'Focus Builder',
       description: 'Complete 5 subtasks',
-      unlocked: stats.completedSubtasks >= 5,
+      unlocked: taskStats.completedSubtasks >= 5,
       icon: '5',
     },
     {
       name: 'Streak Starter',
       description: 'Maintain a 3-day streak',
-      unlocked: streak >= 3,
+      unlocked: streakDays >= 3,
       icon: '3',
     },
     {
       name: 'Ocean Guardian',
       description: 'Restore the full ocean',
-      unlocked: stats.oceanHealth === 100 && stats.totalTasks > 0,
+      unlocked: oceanHealth === 100 && taskStats.totalTasks > 0,
       icon: '🌊',
     },
     {
       name: 'Planner Pro',
       description: 'Complete all tasks',
-      unlocked: stats.completedTasks === stats.totalTasks && stats.totalTasks > 0,
+      unlocked:
+        taskStats.completedTasks === taskStats.totalTasks &&
+        taskStats.totalTasks > 0,
       icon: 'P',
     },
     {

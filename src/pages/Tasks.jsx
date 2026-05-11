@@ -169,7 +169,7 @@ function Tasks({ goals, tasks, setTasks }) {
 
     setTasks(updatedTasks)
 
-    setSuccessMessage('Progress updated! Your Productivity Ocean is recovering.')
+    setSuccessMessage('Progress updated across TASKFLOW AI.')
   }
 
   function handleToggleSubtask(taskId, subtaskId) {
@@ -202,7 +202,7 @@ function Tasks({ goals, tasks, setTasks }) {
 
     setTasks(updatedTasks)
 
-    setSuccessMessage('Progress updated! Your Productivity Ocean is recovering.')
+    setSuccessMessage('Progress updated across TASKFLOW AI.')
   }
 
   return (

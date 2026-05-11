@@ -7,36 +7,6 @@ const priorityOrder = {
   Low: 3,
 }
 
-const fallbackTasks = [
-  {
-    id: 1,
-    title: 'Review project requirements',
-    relatedGoal: 'Complete COMPSCI 732 Project',
-    priority: 'High',
-    category: 'Study',
-    duration: 60,
-    status: 'Pending',
-  },
-  {
-    id: 2,
-    title: 'Build dashboard layout',
-    relatedGoal: 'Master React Frontend',
-    priority: 'High',
-    category: 'Career',
-    duration: 90,
-    status: 'In Progress',
-  },
-  {
-    id: 3,
-    title: 'Create task management UI',
-    relatedGoal: 'Complete COMPSCI 732 Project',
-    priority: 'Medium',
-    category: 'Study',
-    duration: 120,
-    status: 'Pending',
-  },
-]
-
 const initialPreferences = {
   startTime: '09:00',
   endTime: '17:00',
@@ -58,9 +28,13 @@ function minutesToTime(totalMinutes) {
   return `${displayHours}:${String(minutes).padStart(2, '0')} ${period}`
 }
 
-function Schedule({ tasks }) {
+function Schedule({
+  tasks,
+  generatedSchedule,
+  setGeneratedSchedule,
+  setScheduleGenerated,
+}) {
   const [preferences, setPreferences] = useState(initialPreferences)
-  const [scheduleBlocks, setScheduleBlocks] = useState([])
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
@@ -74,8 +48,7 @@ function Schedule({ tasks }) {
   }
 
   function getTasksForSchedule() {
-    const availableTasks = tasks.length > 0 ? tasks : fallbackTasks
-    const activeTasks = availableTasks.filter((task) => task.status !== 'Completed')
+    const activeTasks = tasks.filter((task) => task.status !== 'Completed')
 
     return [...activeTasks].sort(
       (firstTask, secondTask) =>
@@ -117,18 +90,19 @@ function Schedule({ tasks }) {
       currentTime = taskEndTime + breakDuration
     }
 
-    setScheduleBlocks(generatedBlocks)
+    setGeneratedSchedule(generatedBlocks)
+    setScheduleGenerated(generatedBlocks.length > 0)
     setMessage('')
     setError('')
   }
 
   function handleReplanMissedTasks() {
-    if (scheduleBlocks.length === 0) {
+    if (generatedSchedule.length === 0) {
       setMessage('Generate a schedule first, then re-plan missed tasks.')
       return
     }
 
-    setScheduleBlocks((currentBlocks) =>
+    setGeneratedSchedule((currentBlocks) =>
       currentBlocks.map((block, index) =>
         index === currentBlocks.length - 1 ? { ...block, replanned: true } : block,
       ),
@@ -239,13 +213,13 @@ function Schedule({ tasks }) {
           </p>
 
           <div className="mt-5 space-y-4">
-            {scheduleBlocks.length === 0 ? (
+            {generatedSchedule.length === 0 ? (
               <p className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-300">
                 No schedule generated yet. Choose your preferences and click
                 Generate Schedule.
               </p>
             ) : (
-              scheduleBlocks.map((block) => (
+              generatedSchedule.map((block) => (
                 <ScheduleBlock key={`${block.id}-${block.timeRange}`} block={block} />
               ))
             )}

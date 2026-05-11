@@ -8,10 +8,42 @@ import ProductivityOcean from './pages/ProductivityOcean.jsx'
 import Schedule from './pages/Schedule.jsx'
 import Tasks from './pages/Tasks.jsx'
 import {
+  calculateAchievements,
+  calculateGoalStats,
   calculateLevel,
   calculateOceanHealth,
+  calculateTaskStats,
   calculateTotalXP,
+  getInitials,
 } from './utils/progressCalculations.js'
+
+const initialUserProfile = {
+  fullName: 'Shardul Anagal',
+  email: 'shardul@example.com',
+  role: 'Student',
+  mainGoal: 'Complete COMPSCI 732 Project',
+  avatarImage: '',
+  preferences: {
+    preferredStartTime: '09:00',
+    preferredEndTime: '17:00',
+    workloadCapacity: 'Balanced',
+    focusStyle: 'Deep Work',
+    breakPreference: '15 minutes',
+    motivationStyle: 'Encouraging',
+    priorityPreference: 'Balanced',
+    scheduleStyle: 'Flexible blocks',
+  },
+}
+
+const initialStreakDays = [
+  { day: 'Mon', status: 'completed' },
+  { day: 'Tue', status: 'completed' },
+  { day: 'Wed', status: 'completed' },
+  { day: 'Thu', status: 'completed' },
+  { day: 'Fri', status: 'active' },
+  { day: 'Sat', status: 'locked' },
+  { day: 'Sun', status: 'locked' },
+]
 
 const initialGoals = [
   {
@@ -117,12 +149,30 @@ function PlaceholderPage({ message }) {
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [currentPage, setCurrentPage] = useState('dashboard')
+  const [userProfile, setUserProfile] = useState(initialUserProfile)
   const [goals, setGoals] = useState(initialGoals)
   const [tasks, setTasks] = useState(initialTasks)
+  const [generatedSchedule, setGeneratedSchedule] = useState([])
+  const [scheduleGenerated, setScheduleGenerated] = useState(false)
+  // TODO: connect streak to real daily completion history when backend/date persistence is available.
+  const [streakDays] = useState(initialStreakDays)
 
+  const taskStats = calculateTaskStats(tasks)
+  const goalStats = calculateGoalStats(goals)
   const totalXP = calculateTotalXP(tasks)
   const levelInfo = calculateLevel(totalXP)
   const oceanHealth = calculateOceanHealth(tasks)
+  const weeklyStreak = streakDays.filter((day) => day.status === 'completed').length
+  const achievements = calculateAchievements({
+    tasks,
+    goals,
+    totalXP,
+    levelInfo,
+    oceanHealth,
+    scheduleGenerated,
+    streakDays: weeklyStreak,
+  })
+  const userInitials = getInitials(userProfile.fullName)
 
   function handleAuthSuccess() {
     setIsAuthenticated(true)
@@ -139,10 +189,16 @@ function App() {
       return (
         <Dashboard
           onNavigate={setCurrentPage}
+          userProfile={userProfile}
+          goals={goals}
+          taskStats={taskStats}
+          goalStats={goalStats}
           tasks={tasks}
+          generatedSchedule={generatedSchedule}
           totalXP={totalXP}
           oceanHealth={oceanHealth}
           levelInfo={levelInfo}
+          weeklyStreak={weeklyStreak}
         />
       )
     }
@@ -162,7 +218,14 @@ function App() {
     }
 
     if (currentPage === 'schedule') {
-      return <Schedule tasks={tasks} />
+      return (
+        <Schedule
+          tasks={tasks}
+          generatedSchedule={generatedSchedule}
+          setGeneratedSchedule={setGeneratedSchedule}
+          setScheduleGenerated={setScheduleGenerated}
+        />
+      )
     }
 
     if (currentPage === 'progress') {
@@ -170,14 +233,31 @@ function App() {
         <ProductivityOcean
           tasks={tasks}
           goals={goals}
+          taskStats={taskStats}
+          goalStats={goalStats}
           totalXP={totalXP}
           levelInfo={levelInfo}
+          oceanHealth={oceanHealth}
+          achievements={achievements}
+          streakDays={streakDays}
+          weeklyStreak={weeklyStreak}
         />
       )
     }
 
     if (currentPage === 'profile') {
-      return <Profile goals={goals} tasks={tasks} totalXP={totalXP} levelInfo={levelInfo} />
+      return (
+        <Profile
+          userProfile={userProfile}
+          setUserProfile={setUserProfile}
+          userInitials={userInitials}
+          goalStats={goalStats}
+          taskStats={taskStats}
+          totalXP={totalXP}
+          levelInfo={levelInfo}
+          weeklyStreak={weeklyStreak}
+        />
+      )
     }
 
     return <PlaceholderPage message="Page coming next" />
@@ -190,6 +270,8 @@ function App() {
         onPageChange={setCurrentPage}
         onLogout={handleLogout}
         totalXP={totalXP}
+        userProfile={userProfile}
+        userInitials={userInitials}
       >
         {renderPage()}
       </AppLayout>
