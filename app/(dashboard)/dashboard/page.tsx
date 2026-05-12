@@ -1,13 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+
+type DashboardUser = {
+  name?: string;
+};
+
+type TasksStatsResponse = {
+  success?: boolean;
+  data?: unknown[];
+};
+
+type ScheduleStatsResponse = {
+  success?: boolean;
+  data?: unknown[];
+};
 
 export default function DashboardPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<DashboardUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalTasks: 0,
@@ -16,31 +30,31 @@ export default function DashboardPage() {
     scheduleToday: 0,
   });
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const [tasksRes, scheduleRes] = await Promise.all([
         fetch("/api/tasks"),
         fetch(`/api/schedules?date=${new Date().toISOString().slice(0, 10)}`),
       ]);
-      const tasksData = await tasksRes.json();
-      const scheduleData = await scheduleRes.json();
+      const tasksData = (await tasksRes.json()) as TasksStatsResponse;
+      const scheduleData = (await scheduleRes.json()) as ScheduleStatsResponse;
       if (tasksData.success) {
-        setStats((prev) => ({ ...prev, totalTasks: tasksData.data.length }));
+        setStats((prev) => ({ ...prev, totalTasks: tasksData.data?.length ?? 0 }));
       }
       if (scheduleData.success) {
-        setStats((prev) => ({ ...prev, scheduleToday: scheduleData.data.length }));
+        setStats((prev) => ({ ...prev, scheduleToday: scheduleData.data?.length ?? 0 }));
       }
     } catch {
       console.error("Failed to fetch stats");
     }
-  };
+  }, []);
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/auth/me");
       if (!res.ok) { router.push("/login"); return; }
-      const data = await res.json();
+      const data = (await res.json()) as { user: DashboardUser };
       setUser(data.user);
       await fetchStats();
     } catch {
@@ -48,9 +62,9 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchStats, router]);
 
-  useEffect(() => { fetchUser(); }, [pathname]);
+  useEffect(() => { fetchUser(); }, [fetchUser, pathname]);
 
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long", month: "long", day: "numeric", year: "numeric",

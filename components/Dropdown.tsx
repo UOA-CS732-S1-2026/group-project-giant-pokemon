@@ -1,6 +1,13 @@
 "use client";
 
-export default function Dropdown({ label, value, onChange, options }: any) {
+type DropdownProps = {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+};
+
+export default function Dropdown({ label, value, onChange, options }: DropdownProps) {
   return (
     <div className="flex flex-col">
       <label className="text-gray-700 font-medium mb-1">{label}</label>

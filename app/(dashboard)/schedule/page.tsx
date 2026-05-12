@@ -34,6 +34,15 @@ type DBTask = {
     deadline?: string;
 };
 
+type TaskAPIResponse = {
+    _id: string;
+    title: string;
+    priority: DBTask["priority"];
+    status: DBTask["status"];
+    estimatedMinutes?: number;
+    deadline?: string;
+};
+
 // ============ Helpers ============
 
 function getTodayInputDate(): string {
@@ -59,7 +68,7 @@ async function apiGetTasks(): Promise<DBTask[]> {
     const res = await fetch("/api/tasks");
     const json = await res.json();
     if (!json.success) throw new Error(json.error ?? "Failed to fetch tasks.");
-    return json.data.map((t: any) => ({
+    return (json.data as TaskAPIResponse[]).map((t) => ({
         id: t._id,
         title: t.title,
         priority: t.priority,

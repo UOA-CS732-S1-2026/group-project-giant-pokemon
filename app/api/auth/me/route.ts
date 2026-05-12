@@ -5,6 +5,10 @@ import { verifyToken } from "@/lib/jwt";
 import User from "@/models/User";
 import { dbConnect } from "@/lib/mongodb";
 
+type AuthTokenPayload = {
+  id?: string;
+};
+
 export async function GET() {
   await dbConnect();
 
@@ -16,7 +20,7 @@ export async function GET() {
   }
 
   try {
-    const decoded: any = verifyToken(token);
+    const decoded = verifyToken(token) as AuthTokenPayload;
 
     const user = await User.findById(decoded.id).select("-passwordHash");
 

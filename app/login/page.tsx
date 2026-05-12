@@ -44,7 +44,11 @@ export default function AuthPage() {
 
   // Signup validation
   const validateSignup = () => {
-    const newErrors: any = {};
+    const newErrors: typeof errors = {
+      email: "",
+      password: "",
+      confirmPassword: "",
+    };
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) newErrors.email = "Please enter a valid email";

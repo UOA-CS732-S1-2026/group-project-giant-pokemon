@@ -1,5 +1,5 @@
 // lib/schedulableTask.ts
-import { ITask } from "@/models/Task";
+import Task, { ITask } from "@/models/Task";
 
 export interface SchedulableTask {
   id: string;
@@ -12,7 +12,7 @@ export interface SchedulableTask {
   estimatedMinutes: number;
 }
 
-export function toSchedulableTask(task: ITask, date?: string): SchedulableTask {
+export function toSchedulableTask(task: ITask): SchedulableTask {
   // Format deadline to YYYY-MM-DD if exists
   let formattedDeadline: string | undefined;
   if (task.deadline) {
@@ -34,11 +34,11 @@ export function toSchedulableTask(task: ITask, date?: string): SchedulableTask {
 }
 
 // Get schedulable tasks for a user
-export async function getSchedulableTasks(userId: string, date?: string): Promise<SchedulableTask[]> {
+export async function getSchedulableTasks(userId: string): Promise<SchedulableTask[]> {
   const tasks = await Task.find({
     userId: userId,
     status: { $ne: "completed" } // Only todo and in_progress
   }).lean();
   
-  return tasks.map(task => toSchedulableTask(task, date));
+  return tasks.map(task => toSchedulableTask(task));
 }

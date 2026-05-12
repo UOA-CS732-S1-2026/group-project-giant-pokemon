@@ -156,7 +156,14 @@ export default function TasksPage() {
       const url = isEditing ? `/api/tasks/${editingID}` : "/api/tasks";
       const method = isEditing ? "PUT" : "POST";
 
-      const body: any = {
+      const body: {
+        title: string;
+        description: string;
+        priority: TaskPriority;
+        estimatedMinutes: number;
+        deadline?: string;
+        status?: TaskStatus;
+      } = {
         title,
         description,
         priority,

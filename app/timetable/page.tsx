@@ -18,11 +18,21 @@ type ScheduleBlock = {
   updatedAt: string;
 };
 
+type TimetableUser = {
+  name?: string;
+};
+
+type ScheduleBlocksResponse = {
+  success?: boolean;
+  data?: ScheduleBlock[];
+  error?: string;
+};
+
 // 生成30分钟粒度的时间点列表
 const generateTimeSlots = (): string[] => {
   const slots: string[] = [];
   for (let hour = 0; hour < 24; hour++) {
-    for (let minute of [0, 30]) {
+    for (const minute of [0, 30]) {
       const formattedHour = hour.toString().padStart(2, '0');
       const formattedMinute = minute.toString().padStart(2, '0');
       slots.push(`${formattedHour}:${formattedMinute}`);
@@ -148,7 +158,7 @@ const getFreeRowHeight = (durationMinutes: number): number => {
 export default function TimetablePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<TimetableUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [blocks, setBlocks] = useState<ScheduleBlock[]>([]);
   const [date, setDate] = useState(() => {
@@ -157,27 +167,27 @@ export default function TimetablePage() {
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     try {
       const res = await fetch("/api/auth/me");
       if (!res.ok) { router.push("/login"); return; }
-      const data = await res.json();
+      const data = (await res.json()) as { user: TimetableUser };
       setUser(data.user);
     } catch {
       router.push("/login");
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
 
   const fetchBlocks = useCallback(async (targetDate: string) => {
     setFetching(true);
     setError("");
     try {
       const res = await fetch(`/api/schedules?date=${targetDate}`);
-      const json = await res.json();
+      const json = (await res.json()) as ScheduleBlocksResponse;
       if (!json.success) throw new Error(json.error || "Failed to fetch schedules.");
-      setBlocks(json.data);
+      setBlocks(json.data ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setBlocks([]);
@@ -186,7 +196,7 @@ export default function TimetablePage() {
     }
   }, []);
 
-  useEffect(() => { fetchUser(); }, []);
+  useEffect(() => { fetchUser(); }, [fetchUser]);
   useEffect(() => { if (user) fetchBlocks(date); }, [user, date, fetchBlocks]);
 
   const handleDateChange = (newDate: string) => {
@@ -379,7 +389,7 @@ export default function TimetablePage() {
         {/* 智能时间表 */}
         {!fetching && (
           <div className="smart-timetable">
-            {smartRows.map((row, idx) => {
+            {smartRows.map((row) => {
               if (row.type === 'task') {
                 const block = row.block;
                 const colorTheme = getTaskColor(block.title);

@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken";
 
 const SECRET = process.env.JWT_SECRET;
 
-export function signToken(payload: any) {
+export function signToken(payload: string | object) {
   if (!SECRET) throw new Error("JWT_SECRET is missing");
   return jwt.sign(payload, SECRET, { expiresIn: "7d" });
 }

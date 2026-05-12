@@ -2,8 +2,22 @@
 
 import { useEffect, useState } from "react";
 
+type ProfileUser = {
+  name?: string;
+  role?: string;
+  mainGoal?: string;
+  startTime?: string;
+  endTime?: string;
+  workload?: string;
+  focusStyle?: string;
+  breakPref?: string;
+  motivation?: string;
+  priority?: string;
+  scheduleStyle?: string;
+};
+
 export default function ProfilePage() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<ProfileUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Editable fields
@@ -32,23 +46,23 @@ export default function ProfilePage() {
         return;
       }
 
-      const data = await res.json();
+      const data = (await res.json()) as { user: ProfileUser };
       setUser(data.user);
 
       // Load existing values
-      setName(data.user.name);
-      setRole(data.user.role);
-      setMainGoal(data.user.mainGoal);
+      setName(data.user.name ?? "");
+      setRole(data.user.role ?? "Student");
+      setMainGoal(data.user.mainGoal ?? "");
 
-      setStartTime(data.user.startTime);
-      setEndTime(data.user.endTime);
-      setWorkload(data.user.workload);
-      setFocusStyle(data.user.focusStyle);
-      setBreakPref(data.user.breakPref);
+      setStartTime(data.user.startTime ?? "09:00 AM");
+      setEndTime(data.user.endTime ?? "05:00 PM");
+      setWorkload(data.user.workload ?? "Balanced");
+      setFocusStyle(data.user.focusStyle ?? "Deep Work");
+      setBreakPref(data.user.breakPref ?? "15 minutes");
 
-      setMotivation(data.user.motivation);
-      setPriority(data.user.priority);
-      setScheduleStyle(data.user.scheduleStyle);
+      setMotivation(data.user.motivation ?? "Encouraging");
+      setPriority(data.user.priority ?? "Balanced");
+      setScheduleStyle(data.user.scheduleStyle ?? "Flexible blocks");
 
       setLoading(false);
     }
