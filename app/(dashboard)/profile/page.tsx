@@ -1,44 +1,92 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { calculateTaskStats, normalizeDate } from "@/lib/productivityOcean";
+import type { Task, TaskAPI } from "@/types/task";
 
 type ProfileUser = {
   name?: string;
   email?: string;
   role?: string;
-  mainGoal?: string;
-  startTime?: string;
-  endTime?: string;
-  workload?: string;
-  focusStyle?: string;
-  breakPref?: string;
-  motivation?: string;
-  priority?: string;
-  scheduleStyle?: string;
-  xp?: number;
-  streak?: number;
+  profilePhoto?: string;
 };
+
+function mapTask(task: TaskAPI): Task {
+  return {
+    id: task._id,
+    title: task.title,
+    description: task.description,
+    status: task.status,
+    priority: task.priority,
+    estimatedMinutes: task.estimatedMinutes,
+    deadline: normalizeDate(task.deadline),
+    userId: task.userId,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+  };
+}
+
+function getActiveTaskPercent(active: number) {
+  if (active === 0) return 0;
+  if (active <= 3) return 20;
+  if (active <= 7) return 40;
+  if (active <= 10) return 60;
+  if (active <= 15) return 80;
+  return 100;
+}
+
+function getThemeByPercent(percent: number) {
+  if (percent === 0)
+    return {
+      bg: "bg-gradient-to-b from-[#1a2b6d] via-[#0f1a4a] to-[#0a1138]",
+      accent: "text-indigo-300",
+      label: "Calm Waters",
+    };
+
+  if (percent <= 20)
+    return {
+      bg: "from-[#0d3b66] via-[#0a4a7a] to-[#085a92]",
+      accent: "text-blue-300",
+      label: "Steady Flow",
+    };
+
+  if (percent <= 40)
+    return {
+      bg: "from-[#0a2e3b] via-[#0b3f4a] to-[#0c5160]",
+      accent: "text-teal-300",
+      label: "Choppy Waters",
+    };
+
+  if (percent === 60)
+    return {
+      bg: "from-[#4b2e05] via-[#6b3f07] to-[#8a4f09]",
+      accent: "text-amber-300",
+      label: "Turbulent Waters",
+    };
+
+  if (percent <= 80)
+    return {
+      bg: "from-[#3b1a1a] via-[#4a0f0f] to-[#280a0a]",
+      accent: "text-orange-300",
+      label: "Rough Seas",
+    };
+
+  return {
+    bg: "from-[#2b1a1a] via-[#3a0f0f] to-[#1a0707]",
+    accent: "text-red-300",
+    label: "Stormy Seas",
+  };
+}
 
 export default function ProfilePage() {
   const [user, setUser] = useState<ProfileUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Editable fields
+  const [tasks, setTasks] = useState<Task[]>([]);
+
   const [name, setName] = useState("");
   const [role, setRole] = useState("Student");
-  const [mainGoal, setMainGoal] = useState("");
-
-  // Planning Preferences
-  const [startTime, setStartTime] = useState("09:00 AM");
-  const [endTime, setEndTime] = useState("05:00 PM");
-  const [workload, setWorkload] = useState("Balanced");
-  const [focusStyle, setFocusStyle] = useState("Deep Work");
-  const [breakPref, setBreakPref] = useState("15 minutes");
-
-  // Personalisation
-  const [motivation, setMotivation] = useState("Encouraging");
-  const [priority, setPriority] = useState("Balanced");
-  const [scheduleStyle, setScheduleStyle] = useState("Flexible blocks");
+  const [profilePhoto, setProfilePhoto] = useState("");
 
   useEffect(() => {
     async function fetchUser() {
@@ -49,23 +97,12 @@ export default function ProfilePage() {
         return;
       }
 
-      const data = (await res.json()) as { user: ProfileUser };
+      const data = await res.json();
       setUser(data.user);
 
-      // Load existing values
       setName(data.user.name ?? "");
       setRole(data.user.role ?? "Student");
-      setMainGoal(data.user.mainGoal ?? "");
-
-      setStartTime(data.user.startTime ?? "09:00 AM");
-      setEndTime(data.user.endTime ?? "05:00 PM");
-      setWorkload(data.user.workload ?? "Balanced");
-      setFocusStyle(data.user.focusStyle ?? "Deep Work");
-      setBreakPref(data.user.breakPref ?? "15 minutes");
-
-      setMotivation(data.user.motivation ?? "Encouraging");
-      setPriority(data.user.priority ?? "Balanced");
-      setScheduleStyle(data.user.scheduleStyle ?? "Flexible blocks");
+      setProfilePhoto(data.user.profilePhoto ?? "");
 
       setLoading(false);
     }
@@ -73,29 +110,47 @@ export default function ProfilePage() {
     fetchUser();
   }, []);
 
+  useEffect(() => {
+    async function fetchTasks() {
+      const res = await fetch("/api/tasks?includeCompleted=true");
+      const json = await res.json();
+
+      if (json.success) {
+        setTasks(json.data.map(mapTask));
+      }
+    }
+
+    fetchTasks();
+  }, []);
+
+  const taskStats = useMemo(() => calculateTaskStats(tasks), [tasks]);
+  const activeTasks = taskStats.activeTasks;
+
+  const activePercent = getActiveTaskPercent(activeTasks);
+  const theme = getThemeByPercent(activePercent);
+
   async function handleSave() {
     await fetch("/api/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        role,
-        mainGoal,
-        startTime,
-        endTime,
-        workload,
-        focusStyle,
-        breakPref,
-        motivation,
-        priority,
-        scheduleStyle,
-      }),
+      body: JSON.stringify({ name, role, profilePhoto }),
     });
 
     alert("Profile updated!");
   }
 
-  if (loading) {
+  function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setProfilePhoto(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  if (loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#050b24] text-white">
         Loading...
@@ -103,64 +158,53 @@ export default function ProfilePage() {
     );
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#050b24] text-white">
-        Unable to load profile.
-      </div>
-    );
-  }
+  const fallbackInitial = (user.name ?? "U").charAt(0).toUpperCase();
 
   return (
-    <div className="space-y-12 bg-gradient-to-b from-[#1a2b6d] via-[#0f1a4a] to-[#0a1138]
-        border border-blue-500/20 rounded-3xl p-10 shadow-xl text-white">
-
-      {/* HEADER */}
-      <header>
-        <h1 className="text-4xl font-extrabold tracking-tight text-white">
+    <div
+      className={`min-h-screen p-10 text-white bg-gradient-to-b ${theme.bg} transition-all duration-700`}
+    >
+      <header className="mb-10">
+        <h1 className="text-4xl font-extrabold tracking-tight">
           Profile Overview
         </h1>
-        <p className="text-blue-300 mt-1 text-lg">
-          Manage your personal details and preferences.
+        <p className={`${theme.accent} mt-1 text-lg`}>
+          Your theme adapts to your current workload.
         </p>
       </header>
 
-      {/* GRID: LEFT + RIGHT */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 bg-gradient-to-b from-[#1a2b6d] via-[#0f1a4a] to-[#0a1138]
-        border border-blue-500/20 rounded-3xl p-10 shadow-xl text-white">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
 
-        {/* LEFT CARD — PROFILE INFORMATION */}
-        <div className="col-span-2 bg-gradient-to-b from-[#1a2b6d] via-[#0f1a4a] to-[#0a1138]
-          border border-blue-500/20 rounded-3xl p-10 shadow-xl text-white">
-
-          <h3 className="text-xl font-bold mb-6">Profile Information</h3>
+        {/* LEFT — Editable Info */}
+        <div className="col-span-2 bg-white/10 p-8 rounded-3xl shadow-xl backdrop-blur-md">
+          <h3 className="text-xl font-bold mb-6">Personal Information</h3>
 
           <div className="space-y-6">
 
             <div>
-              <label className="block text-blue-200 font-medium mb-1">Full name</label>
+              <label className="block font-medium mb-1">Full name</label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-[#0d1538] text-white border border-blue-500/20 rounded-lg px-4 py-2"
+                className="w-full bg-black/30 text-white border border-white/20 rounded-lg px-4 py-2"
               />
             </div>
 
             <div>
-              <label className="block text-blue-200 font-medium mb-1">Email</label>
+              <label className="block font-medium mb-1">Email</label>
               <input
                 value={user.email ?? ""}
                 disabled
-                className="w-full bg-[#0d1538] text-blue-300 border border-blue-500/20 rounded-lg px-4 py-2"
+                className="w-full bg-black/30 text-blue-300 border border-white/20 rounded-lg px-4 py-2"
               />
             </div>
 
             <div>
-              <label className="block text-blue-200 font-medium mb-1">Role / Focus</label>
+              <label className="block font-medium mb-1">Role</label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                className="w-full bg-[#0d1538] text-white border border-blue-500/20 rounded-lg px-4 py-2"
+                className="w-full bg-black/30 text-white border border-white/20 rounded-lg px-4 py-2"
               >
                 <option>Student</option>
                 <option>Developer</option>
@@ -169,177 +213,58 @@ export default function ProfilePage() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-blue-200 font-medium mb-1">Main goal</label>
-              <input
-                value={mainGoal}
-                onChange={(e) => setMainGoal(e.target.value)}
-                className="w-full bg-[#0d1538] text-white border border-blue-500/20 rounded-lg px-4 py-2"
-              />
-            </div>
-
           </div>
         </div>
 
-        {/* RIGHT CARD — PROFILE SUMMARY */}
-        <div className="bg-gradient-to-b from-[#1a2b6d] via-[#0f1a4a] to-[#0a1138]
-        border border-blue-500/20 rounded-3xl p-10 shadow-xl text-white shadow-xl text-center text-white flex flex-col items-center">
+        {/* RIGHT — Summary + Photo */}
+        <div className="bg-white/10 p-8 rounded-3xl shadow-xl backdrop-blur-md text-center flex flex-col items-center">
 
-          <div className="w-28 h-28 bg-white/20 rounded-full flex items-center justify-center
-            text-4xl font-bold uppercase shadow-lg">
-            {(user.name ?? "U").charAt(0)}
-          </div>
+          {/* Profile Photo or Initial */}
+          {profilePhoto ? (
+            <img
+              src={profilePhoto}
+              className="w-32 h-32 rounded-full object-cover shadow-lg border border-white/20"
+            />
+          ) : (
+            <div className="w-32 h-32 rounded-full bg-white/20 flex items-center justify-center text-5xl font-bold shadow-lg border border-white/20">
+              {fallbackInitial}
+            </div>
+          )}
 
-          <p className="text-blue-100 text-sm mt-3">{role}</p>
+          {/* Upload Button */}
+          <label className="mt-4 cursor-pointer bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-medium transition">
+            Upload Photo
+            <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+          </label>
+
+          <p className="text-blue-100 text-sm mt-4">{role}</p>
 
           <div className="w-full h-px bg-white/20 my-6"></div>
 
-          <p className="text-lg font-semibold">Level 3 Planner</p>
+          <p className="text-lg font-semibold">Current Workload</p>
+          <p className={`${theme.accent} text-xl font-bold`}>
+            {theme.label}
+          </p>
 
-          <div className="mt-6 space-y-2">
-            <p className="text-blue-100">
-              XP: <span className="font-bold text-white">{user.xp ?? 0} XP</span>
-            </p>
-            <p className="text-blue-100">{user.streak ?? 0} day streak</p>
-          </div>
+          <p className="mt-4 text-blue-100">
+            Workload Level:{" "}
+            <span className="font-bold text-white">{activePercent}%</span>
+          </p>
 
-        </div>
-      </div>
-
-      {/* PLANNING PREFERENCES */}
-      <div className="bg-gradient-to-b from-[#1a2b6d] via-[#0f1a4a] to-[#0a1138]
-        border border-blue-500/20 rounded-3xl p-10 shadow-xl text-white">
-
-        <h3 className="text-xl font-bold mb-6">Planning Preferences</h3>
-
-        <div className="grid grid-cols-2 gap-6">
-
-          <div>
-            <label className="block text-blue-200 font-medium mb-1">Preferred start time</label>
-            <select
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="w-full bg-[#0d1538] text-white border border-blue-500/20 rounded-lg px-4 py-2"
-            >
-              <option>07:00 AM</option>
-              <option>08:00 AM</option>
-              <option>09:00 AM</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-blue-200 font-medium mb-1">Preferred end time</label>
-            <select
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className="w-full bg-[#0d1538] text-white border border-blue-500/20 rounded-lg px-4 py-2"
-            >
-              <option>04:00 PM</option>
-              <option>05:00 PM</option>
-              <option>06:00 PM</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-blue-200 font-medium mb-1">Daily workload capacity</label>
-            <select
-              value={workload}
-              onChange={(e) => setWorkload(e.target.value)}
-              className="w-full bg-[#0d1538] text-white border border-blue-500/20 rounded-lg px-4 py-2"
-            >
-              <option>Light</option>
-              <option>Balanced</option>
-              <option>Heavy</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-blue-200 font-medium mb-1">Preferred focus style</label>
-            <select
-              value={focusStyle}
-              onChange={(e) => setFocusStyle(e.target.value)}
-              className="w-full bg-[#0d1538] text-white border border-blue-500/20 rounded-lg px-4 py-2"
-            >
-              <option>Deep Work</option>
-              <option>Pomodoro</option>
-              <option>Short Bursts</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-blue-200 font-medium mb-1">Break preference</label>
-            <select
-              value={breakPref}
-              onChange={(e) => setBreakPref(e.target.value)}
-              className="w-full bg-[#0d1538] text-white border border-blue-500/20 rounded-lg px-4 py-2"
-            >
-              <option>5 minutes</option>
-              <option>10 minutes</option>
-              <option>15 minutes</option>
-              <option>20 minutes</option>
-            </select>
-          </div>
+          <p className="mt-2 text-blue-100">
+            Active Tasks:{" "}
+            <span className="font-bold text-white">{activeTasks}</span>
+          </p>
 
         </div>
       </div>
 
-      {/* PERSONALISATION */}
-      <div className="bg-gradient-to-b from-[#1a2b6d] via-[#0f1a4a] to-[#0a1138]
-        border border-blue-500/20 rounded-3xl p-10 shadow-xl text-white">
-
-        <h3 className="text-xl font-bold mb-6">Personalisation</h3>
-
-        <div className="grid grid-cols-3 gap-6">
-
-          <div>
-            <label className="block text-blue-200 font-medium mb-1">Motivation style</label>
-            <select
-              value={motivation}
-              onChange={(e) => setMotivation(e.target.value)}
-              className="w-full bg-[#0d1538] text-white border border-blue-500/20 rounded-lg px-4 py-2"
-            >
-              <option>Encouraging</option>
-              <option>Strict</option>
-              <option>Neutral</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-blue-200 font-medium mb-1">Priority preference</label>
-            <select
-              value={priority}
-              onChange={(e) => setPriority(e.target.value)}
-              className="w-full bg-[#0d1538] text-white border border-blue-500/20 rounded-lg px-4 py-2"
-            >
-              <option>Balanced</option>
-              <option>Urgency first</option>
-              <option>Difficulty first</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-blue-200 font-medium mb-1">Schedule style</label>
-            <select
-              value={scheduleStyle}
-              onChange={(e) => setScheduleStyle(e.target.value)}
-              className="w-full bg-[#0d1538] text-white border border-blue-500/20 rounded-lg px-4 py-2"
-            >
-              <option>Flexible blocks</option>
-              <option>Structured</option>
-              <option>Adaptive</option>
-            </select>
-          </div>
-
-        </div>
-      </div>
-
-      {/* SAVE BUTTON */}
       <div className="mt-12 flex justify-center">
         <button
           onClick={handleSave}
           className="bg-blue-600 text-white font-semibold px-10 py-3 rounded-xl text-lg shadow-md hover:bg-blue-700 transition"
         >
-          Save All Preferences
+          Save Changes
         </button>
       </div>
     </div>

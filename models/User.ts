@@ -26,6 +26,9 @@ const UserSchema = new mongoose.Schema(
     // XP + Streak
     xp: { type: Number, default: 0 },
     streak: { type: Number, default: 0 },
+
+    //profile page update
+    profilePhoto: { type: String, default: "" },
   },
   { timestamps: true }
 );
