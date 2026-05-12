@@ -1,4 +1,4 @@
-import { Schema, model, models } from 'mongoose';
+import { Schema, model, models, Types } from 'mongoose';
 
 export type GoalStatus = "active" | "completed";
 
@@ -9,13 +9,14 @@ export interface GoalDocument {
     targetDate?: Date;
     progress: number;
     tags: string[];
+    userId: Types.ObjectId;
     createdAt: Date;
     updatedAt: Date;
 }
 
 const GoalSchema = new Schema<GoalDocument>(
     {
-        title:{
+        title: {
             type: String,
             required: true,
             trim: true,
@@ -44,6 +45,11 @@ const GoalSchema = new Schema<GoalDocument>(
         tags: {
             type: [String],
             default: [],
+        },
+        userId: {
+            type: Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
         },
     },
     {

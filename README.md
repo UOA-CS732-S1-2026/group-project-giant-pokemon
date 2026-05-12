@@ -1,86 +1,54 @@
-📋 What's New — 9th May 2026
+# TaskFlow AI
 
-Task Management Module ✅
+## 📋 What's New — 12th May 2026
 
-Full CRUD operations (Create, Read, Update, Delete)
-User isolation — each user sees only their own tasks
-Schedule Engine ready (priority, status, estimated minutes, deadline)
-Pages: /tasks (task management), /dashboard (landing with navigation cards)
+*AI features (task parser, free time suggestions, user preference alignment) updated by Marvin Xu*
 
+### 🤖 AI-Powered Natural Language Task Parser
 
-Schedule Module ✅
+- **Create tasks using plain English** — just describe what you need to do, AI handles the rest
+- Example: *"Meeting at 10am, lunch at 12:30pm, pick up kids at 4pm, football at 6pm"*
+- AI automatically extracts: title, priority, estimated duration, deadline, scheduled date & time
+- Preview before saving — review then save with one click
+- Page: `/tasks` (AI Quick Add section)
 
-Tasks from the database are automatically loaded and passed to the schedule engine — no manual input required
-Supports both Rule mode and AI mode scheduling
-Each task is guaranteed to appear at most once per day
-Fixed blocks (e.g. lunch, meetings) can be manually added and are treated as occupied time by the engine
-Clear All button to wipe all blocks for the current date in one click
-Fully connected to the real database
+### 🧠 AI-Powered Free Time Suggestions
 
+- **Intelligent activity suggestions** for every free slot in your timetable
+- Categories: rest, exercise, learning, social, creative, mindfulness
+- **Breaks long free slots into multiple smaller activities** (e.g., study → break → exercise → break → review)
+- One-click "Add to Timetable" — suggested activities are instantly saved as scheduled tasks with:
+  - **Title** (activity description)
+  - **Start time** (matches the free slot start time)
+  - **Duration** (intelligently calculated based on activity length)
+  - **End time** (automatically derived from start time + duration)
+- Page: `/timetable` (Free Time Suggestions section)
 
-Timetable Module ✅ (New)
+### 📝 Task Management — Enhanced with Time & Duration
 
-New /timetable page with a smart merged timeline view
-Free time slots are intelligently collapsed — no large empty grids
-Free block height scales dynamically with duration for better readability
-Task cards have color themes for quick visual distinction
-Clear All button
-Fully connected to the real database
+- **Schedule tasks with specific times** — each task now supports:
+  - `scheduledDate` — pick the exact date for your task
+  - `scheduledStartTime` — set a precise start time (e.g., 10:00 AM)
+  - `estimatedMinutes` — duration of the task (1-480 minutes)
+- Tasks with scheduled time automatically appear in your Timetable at the correct position
+- Manual task creation form includes all time fields
+- Edit any task to modify its scheduled time or duration
+- Page: `/tasks`
 
+### 🎯 AI Suggestions Aligned with User Preferences
 
-AI Schedule Engine ✅
+- AI reads your **Planning Preferences** from your profile and personalizes every suggestion:
+  - **Working hours** — suggestions only within your preferred start/end time
+  - **Workload capacity** — won't overschedule if you prefer a lighter load
+  - **Focus style** — activity length matches Deep Work / Pomodoro / Short Bursts
+  - **Break preference** — inserts breaks of your preferred length
+  - **Main goal & active goals** — suggestions tie back to your goals
+- Page: `/profile` — set your preferences once, AI uses them everywhere
 
-Audit logging added to verify real Gemini API calls at runtime — model name, prompt length, and raw response are printed to the terminal on every request
-Rule mode available for testing without an API key
+### 📅 Timetable Module — Smart & Personalized
 
-
-🔑 API Key Note
-To test AI scheduling mode, add your own GEMINI_API_KEY to .env.local. Without it the engine falls back to Rule mode automatically. Rule mode is recommended for general testing.
-
-⚠️ Work in Progress
-Core data flow is fully operational: Task → Schedule Engine → Schedule Blocks → Timetable. This is the initial integration milestone, not the final version. Ongoing work includes UI/UX refinements, improved user interaction flows, and feature expansion. Updates will be pushed continuously.
-
-
-
-Welcome to the CS732 project. We look forward to seeing the amazing things you create this semester! This is your team's repository.
-
-Your team members are:
-- Khushba Ahmed _(kahm047@aucklanduni.ac.nz)_
-- Shardul Mangesh Anagal _(sana691@aucklanduni.ac.nz)_
-- Sreelakshmi Gireesh _(sgir748@aucklanduni.ac.nz)_
-- Harsh Kumar _(hkmu884@aucklanduni.ac.nz)_
-- Marvin Xu _(zxu734@aucklanduni.ac.nz)_
-- Chao Yao _(cyao907@aucklanduni.ac.nz)_
-
-You have complete control over how you run this repo. All your members will have admin access. The only thing setup by default is branch protections on `main`, requiring a PR with at least one code reviewer to modify `main` rather than direct pushes.
-
-Please use good version control practices, such as feature branching, both to make it easier for markers to see your group's history and to lower the chances of you tripping over each other during development
-
-![](./Giant%20Pokemon.png)
-
-## Docker
-
-This project can run as a production-style Docker container with MongoDB via
-Docker Compose.
-
-```bash
-docker compose up --build
-```
-
-Then open http://localhost:3000.
-
-The Compose setup provides `MONGODB_URI=mongodb://mongo:27017/taskflow` to the
-app container and persists MongoDB data in the `mongo-data` volume. MongoDB is
-kept on Docker's internal network, so it will not conflict with a local MongoDB
-already using port 27017.
-
-Useful commands:
-
-```bash
-docker compose down
-docker compose down -v
-docker compose logs -f app
-```
-
-For local development without Docker, copy `.env.example` to `.env.local` and
-adjust `MONGODB_URI` if needed.
+- **Dynamic time range** — automatically adjusts to your preferred working hours
+- **Smart merged timeline** — free time slots are intelligently collapsed
+- **Daily progress bar** — track completed vs. scheduled tasks
+- Tasks with scheduled time appear exactly where you placed them
+- Page: `/timetable`

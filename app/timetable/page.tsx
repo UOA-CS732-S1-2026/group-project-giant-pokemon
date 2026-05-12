@@ -20,6 +20,8 @@ type ScheduleBlock = {
 
 type TimetableUser = {
   name?: string;
+  startTime?: string;
+  endTime?: string;
 };
 
 type ScheduleBlocksResponse = {
@@ -28,35 +30,51 @@ type ScheduleBlocksResponse = {
   error?: string;
 };
 
-// 生成30分钟粒度的时间点列表
-const generateTimeSlots = (): string[] => {
-  const slots: string[] = [];
-  for (let hour = 0; hour < 24; hour++) {
-    for (const minute of [0, 30]) {
-      const formattedHour = hour.toString().padStart(2, '0');
-      const formattedMinute = minute.toString().padStart(2, '0');
-      slots.push(`${formattedHour}:${formattedMinute}`);
-    }
-  }
-  return slots;
+type FreeTimeSuggestion = {
+  slot: string;
+  duration: string;
+  suggestion: string;
+  category: string;
 };
 
-const TIME_SLOTS = generateTimeSlots();
+// Convert "09:00 AM" to "09:00"
+function convertTo24Hour(time12h: string): string {
+  if (!time12h) return "09:00";
+  const match = time12h.match(/(\d+):(\d+)\s*(AM|PM)/i);
+  if (!match) return "09:00";
+  let hour = parseInt(match[1]);
+  const minute = match[2];
+  const period = match[3].toUpperCase();
+  if (period === "PM" && hour !== 12) hour += 12;
+  if (period === "AM" && hour === 12) hour = 0;
+  return `${hour.toString().padStart(2, "0")}:${minute}`;
+}
 
-// 将 "14:30" 转换为分钟数
+// Convert "14:30" to minutes
 const timeToMinutes = (time: string): number => {
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m;
 };
 
-// 将分钟数转回 "14:30" 格式
+// Convert minutes to "14:30"
 const minutesToTime = (minutes: number): string => {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 };
 
-// 获取任务卡片颜色（基于标题hash）
+// Generate 30-min time slots based on user preferences
+const generateTimeSlots = (start: string, end: string): string[] => {
+  const slots: string[] = [];
+  const startMin = timeToMinutes(start);
+  const endMin = timeToMinutes(end);
+  for (let t = startMin; t <= endMin; t += 30) {
+    slots.push(minutesToTime(t));
+  }
+  return slots;
+};
+
+// Get task card color based on title hash
 const getTaskColor = (title: string): { bg: string; border: string; text: string } => {
   const colors = [
     { bg: "#eff6ff", border: "#3b82f6", text: "#1e40af" },
@@ -77,7 +95,7 @@ const getTaskColor = (title: string): { bg: string; border: string; text: string
   return colors[Math.abs(hash) % colors.length];
 };
 
-// 格式化时长
+// Format duration
 const formatDuration = (start: string, end: string): string => {
   const diff = timeToMinutes(end) - timeToMinutes(start);
   const hours = Math.floor(diff / 60);
@@ -87,21 +105,21 @@ const formatDuration = (start: string, end: string): string => {
   return `${hours}h ${mins}min`;
 };
 
-// 时间段合并项：要么是任务块，要么是空白块
 type MergedSlot = 
   | { type: 'task'; block: ScheduleBlock; startTime: string; endTime: string; }
   | { type: 'free'; startTime: string; endTime: string; durationMinutes: number; };
 
-// 将时间轴和任务合并为“智能行”
-const mergeIntoSmarterRows = (blocks: ScheduleBlock[]): MergedSlot[] => {
-  if (blocks.length === 0) {
-    // 全天都是空白 → 返回一个大的空白块
-    return [{ type: 'free', startTime: '00:00', endTime: '23:30', durationMinutes: 23.5 * 60 }];
+// Merge timeline and tasks into smart rows
+const mergeIntoSmarterRows = (blocks: ScheduleBlock[], timeSlots: string[]): MergedSlot[] => {
+  if (blocks.length === 0 && timeSlots.length > 0) {
+    const start = timeSlots[0];
+    const end = timeSlots[timeSlots.length - 1];
+    const endNext = minutesToTime(timeToMinutes(end) + 30);
+    return [{ type: 'free', startTime: start, endTime: endNext, durationMinutes: timeToMinutes(endNext) - timeToMinutes(start) }];
   }
 
   const sortedBlocks = [...blocks].sort((a, b) => a.startTime.localeCompare(b.startTime));
   
-  // 建立每个30分钟格子的占用映射
   const occupied = new Map<string, ScheduleBlock>();
   for (const block of sortedBlocks) {
     const startMin = timeToMinutes(block.startTime);
@@ -115,29 +133,26 @@ const mergeIntoSmarterRows = (blocks: ScheduleBlock[]): MergedSlot[] => {
   const result: MergedSlot[] = [];
   let i = 0;
   
-  while (i < TIME_SLOTS.length) {
-    const currentSlot = TIME_SLOTS[i];
+  while (i < timeSlots.length) {
+    const currentSlot = timeSlots[i];
     const currentBlock = occupied.get(currentSlot);
     
     if (currentBlock) {
-      // 有任务：找出这个任务占据的所有连续时间格
       const taskStart = currentBlock.startTime;
       const taskEnd = currentBlock.endTime;
       result.push({ type: 'task', block: currentBlock, startTime: taskStart, endTime: taskEnd });
-      // 跳过这个任务占用的所有时间格
       let j = i;
-      while (j < TIME_SLOTS.length && TIME_SLOTS[j] < taskEnd) {
+      while (j < timeSlots.length && timeSlots[j] < taskEnd) {
         j++;
       }
       i = j;
     } else {
-      // 空白：找出连续空白段的起止
       const freeStart = currentSlot;
       let j = i;
-      while (j < TIME_SLOTS.length && !occupied.get(TIME_SLOTS[j])) {
+      while (j < timeSlots.length && !occupied.get(timeSlots[j])) {
         j++;
       }
-      const freeEnd = j < TIME_SLOTS.length ? TIME_SLOTS[j] : '23:30';
+      const freeEnd = j < timeSlots.length ? timeSlots[j] : minutesToTime(timeToMinutes(timeSlots[timeSlots.length - 1]) + 30);
       const durationMinutes = timeToMinutes(freeEnd) - timeToMinutes(freeStart);
       result.push({ type: 'free', startTime: freeStart, endTime: freeEnd, durationMinutes });
       i = j;
@@ -147,10 +162,8 @@ const mergeIntoSmarterRows = (blocks: ScheduleBlock[]): MergedSlot[] => {
   return result;
 };
 
-// 根据空白时长计算行高的倍数（1小时 = 1倍，3小时 = 1.4倍，线性增长但上限1.8倍）
 const getFreeRowHeight = (durationMinutes: number): number => {
   const hours = durationMinutes / 60;
-  // 基础高度65px，倍数范围 1.0 ~ 1.8
   const multiplier = Math.min(1.8, 1 + (hours - 0.5) * 0.18);
   return Math.max(1.0, multiplier);
 };
@@ -183,6 +196,14 @@ function TimetableContent() {
   });
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState("");
+  const [freeTimeSuggestions, setFreeTimeSuggestions] = useState<FreeTimeSuggestion[] | null>(null);
+  const [loadingFreeTime, setLoadingFreeTime] = useState(false);
+  const [addingSlot, setAddingSlot] = useState<string | null>(null);
+  
+  // User preference time range
+  const [userStartTime, setUserStartTime] = useState("08:00");
+  const [userEndTime, setUserEndTime] = useState("22:00");
+  const [timeSlots, setTimeSlots] = useState<string[]>([]);
 
   const fetchUser = useCallback(async () => {
     try {
@@ -190,6 +211,13 @@ function TimetableContent() {
       if (!res.ok) { router.push("/login"); return; }
       const data = (await res.json()) as { user: TimetableUser };
       setUser(data.user);
+      
+      // Load user's preferred time range
+      const start24 = convertTo24Hour(data.user.startTime ?? "09:00 AM");
+      const end24 = convertTo24Hour(data.user.endTime ?? "05:00 PM");
+      setUserStartTime(start24);
+      setUserEndTime(end24);
+      setTimeSlots(generateTimeSlots(start24, end24));
     } catch {
       router.push("/login");
     } finally {
@@ -250,6 +278,49 @@ function TimetableContent() {
     }
   };
 
+  const handleGetFreeTimeSuggestions = async () => {
+    setLoadingFreeTime(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/free-time-suggestions?date=${date}`);
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      setFreeTimeSuggestions(json.data.suggestions);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoadingFreeTime(false);
+    }
+  };
+
+  const handleAddSuggestionToTimetable = async (suggestion: FreeTimeSuggestion) => {
+    const parts = suggestion.slot.split("-");
+    if (parts.length !== 2) return;
+    const startTime = parts[0].trim();
+    const endTime = parts[1].trim();
+    const title = suggestion.suggestion.slice(0, 100);
+
+    setAddingSlot(suggestion.slot);
+    setError("");
+    try {
+      const res = await fetch("/api/schedules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, date, startTime, endTime, status: "scheduled" }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      await fetchBlocks(date);
+      setFreeTimeSuggestions(prev =>
+        prev ? prev.filter(s => s.slot !== suggestion.slot) : prev
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAddingSlot(null);
+    }
+  };
+
   const shiftDate = (delta: number) => {
     const d = new Date(date);
     d.setDate(d.getDate() + delta);
@@ -266,10 +337,19 @@ function TimetableContent() {
     return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
   };
 
-  const smartRows = mergeIntoSmarterRows(blocks);
+  const smartRows = mergeIntoSmarterRows(blocks, timeSlots);
   const completedCount = blocks.filter(b => b.status === "completed").length;
   const totalCount = blocks.length;
   const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+  const categoryColors: Record<string, { bg: string; color: string }> = {
+    rest:        { bg: "#f0fdf4", color: "#15803d" },
+    exercise:    { bg: "#eff6ff", color: "#1d4ed8" },
+    learning:    { bg: "#fdf4ff", color: "#7e22ce" },
+    social:      { bg: "#fff7ed", color: "#c2410c" },
+    creative:    { bg: "#fef9c3", color: "#854d0e" },
+    mindfulness: { bg: "#f0fdfa", color: "#0f766e" },
+  };
 
   if (loading) {
     return <TimetableLoading />;
@@ -335,6 +415,9 @@ function TimetableContent() {
           transform: translateY(-1px);
           box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         }
+        .add-btn:hover {
+          background: #f3f4f6 !important;
+        }
         @media (max-width: 560px) {
           .smart-time-cell { width: 75px; padding: 12px 8px; font-size: 11px; }
           .task-card { padding: 8px 10px; }
@@ -350,7 +433,9 @@ function TimetableContent() {
             <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1e293b", letterSpacing: "-0.3px", marginBottom: 4 }}>
               Timetable
             </h1>
-            <p style={{ fontSize: 13, color: "#94a3b8" }}>Smart view · free slots are intelligently merged</p>
+            <p style={{ fontSize: 13, color: "#94a3b8" }}>
+              Smart view · {userStartTime} – {userEndTime}
+            </p>
           </div>
           <Link
             href="/schedule"
@@ -398,8 +483,8 @@ function TimetableContent() {
           </div>
         )}
 
-        {/* 智能时间表 */}
-        {!fetching && (
+        {/* Smart Timetable */}
+        {!fetching && timeSlots.length > 0 && (
           <div className="smart-timetable">
             {smartRows.map((row) => {
               if (row.type === 'task') {
@@ -445,7 +530,6 @@ function TimetableContent() {
                   </div>
                 );
               } else {
-                // 空白区块，按时长比例调整行高
                 const heightMultiplier = getFreeRowHeight(row.durationMinutes);
                 const hoursCount = (row.durationMinutes / 60).toFixed(1);
                 return (
@@ -471,6 +555,65 @@ function TimetableContent() {
             })}
           </div>
         )}
+
+        {/* Free Time Suggestions - AI Suggestions */}
+        <div style={{ marginTop: 24 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div>
+              <p style={{ fontSize: 15, fontWeight: 600, color: "#1e293b", marginBottom: 2 }}>Free Time Suggestions</p>
+              <p style={{ fontSize: 12, color: "#94a3b8" }}>AI recommends what to do in your free slots</p>
+            </div>
+            <button
+              onClick={handleGetFreeTimeSuggestions}
+              disabled={loadingFreeTime}
+              style={{ fontSize: 12, fontWeight: 500, padding: "8px 16px", borderRadius: 12, border: "none", background: loadingFreeTime ? "#e5e7eb" : "#2563eb", color: loadingFreeTime ? "#9ca3af" : "#fff", cursor: loadingFreeTime ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}
+            >
+              {loadingFreeTime && (
+                <div style={{ width: 12, height: 12, border: "2px solid rgba(255,255,255,0.4)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+              )}
+              {loadingFreeTime ? "Analyzing..." : "Get AI Suggestions"}
+            </button>
+          </div>
+
+          {freeTimeSuggestions !== null && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {freeTimeSuggestions.length === 0 ? (
+                <div style={{ background: "#fff", borderRadius: 14, padding: "24px", textAlign: "center" }}>
+                  <p style={{ fontSize: 13, color: "#9ca3af" }}>No free slots today — fully packed!</p>
+                </div>
+              ) : (
+                freeTimeSuggestions.map((s, i) => {
+                  const cc = categoryColors[s.category] ?? { bg: "#f8fafc", color: "#475569" };
+                  const isAdding = addingSlot === s.slot;
+                  return (
+                    <div key={i} style={{ background: "#fff", borderRadius: 14, padding: "14px 16px", border: "1px solid #f3f4f6" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                        <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{s.slot}</span>
+                        <span style={{ fontSize: 11, color: "#94a3b8" }}>{s.duration}</span>
+                        <span style={{ fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 999, background: cc.bg, color: cc.color, marginLeft: "auto", textTransform: "capitalize" }}>
+                          {s.category}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: 13, color: "#374151", margin: "0 0 10px", lineHeight: 1.5 }}>{s.suggestion}</p>
+                      <button
+                        className="add-btn"
+                        onClick={() => handleAddSuggestionToTimetable(s)}
+                        disabled={isAdding}
+                        style={{ fontSize: 11, fontWeight: 500, padding: "5px 12px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: isAdding ? "#9ca3af" : "#374151", cursor: isAdding ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 5, transition: "background 0.15s" }}
+                      >
+                        {isAdding && (
+                          <div style={{ width: 10, height: 10, border: "1.5px solid #d1d5db", borderTopColor: "#6b7280", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                        )}
+                        {isAdding ? "Adding..." : "+ Add to Timetable"}
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
+
       </main>
     </div>
   );

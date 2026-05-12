@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+
 import type {
     ScheduleGenerationMode,
     ScheduleGenerationMeta,
@@ -9,8 +10,6 @@ import type {
     ScheduleWindowConfig,
 } from "@/lib/scheduleEngine/types";
 import type { ScheduleBlockStatus } from "@/types/schedule";
-
-// ============ Types ============
 
 type ScheduleBlockAPI = {
     _id: string;
@@ -32,18 +31,9 @@ type DBTask = {
     status: "todo" | "in_progress" | "completed";
     estimatedMinutes: number;
     deadline?: string;
+    scheduledDate?: string;
+    scheduledStartTime?: string;
 };
-
-type TaskAPIResponse = {
-    _id: string;
-    title: string;
-    priority: DBTask["priority"];
-    status: DBTask["status"];
-    estimatedMinutes?: number;
-    deadline?: string;
-};
-
-// ============ Helpers ============
 
 function getTodayInputDate(): string {
     return new Date().toISOString().slice(0, 10);
@@ -62,19 +52,24 @@ function hasValidTimeRange(start: string, end: string): boolean {
     return timeToMinutes(start) < timeToMinutes(end);
 }
 
-// ============ API Calls ============
+function calcEndTime(start: string, minutes: number): string {
+    const total = timeToMinutes(start) + minutes;
+    return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
 
 async function apiGetTasks(): Promise<DBTask[]> {
     const res = await fetch("/api/tasks");
     const json = await res.json();
     if (!json.success) throw new Error(json.error ?? "Failed to fetch tasks.");
-    return (json.data as TaskAPIResponse[]).map((t) => ({
+    return json.data.map((t: any) => ({
         id: t._id,
         title: t.title,
         priority: t.priority,
         status: t.status,
         estimatedMinutes: t.estimatedMinutes || 60,
         deadline: t.deadline,
+        scheduledDate: t.scheduledDate,
+        scheduledStartTime: t.scheduledStartTime,
     }));
 }
 
@@ -141,8 +136,6 @@ async function apiEnginePreview(body: {
     return { data: json.data as ScheduleBlockAPI[], meta: json.meta as ScheduleGenerationMeta };
 }
 
-// ============ Main Component ============
-
 export default function SchedulePage() {
     const [blocks, setBlocks] = useState<ScheduleBlockAPI[]>([]);
     const [tasks, setTasks] = useState<DBTask[]>([]);
@@ -193,34 +186,88 @@ export default function SchedulePage() {
     useEffect(() => { fetchBlocks(date); }, [date, fetchBlocks]);
 
     async function handleGenerate() {
-    setGenerating(true);
-    setError("");
-    try {
-        const occupiedBlocks: EngineOccupiedBlock[] = blocks
-            .filter((b) => b.status === "scheduled" || b.status === "completed")
-            .map((b) => ({ taskId: b.taskId, title: b.title, startTime: b.startTime, endTime: b.endTime, status: b.status }));
+        setGenerating(true);
+        setError("");
+        try {
+            const occupiedBlocks: EngineOccupiedBlock[] = blocks
+                .filter((b) => b.status === "scheduled" || b.status === "completed")
+                .map((b) => ({ taskId: b.taskId, title: b.title, startTime: b.startTime, endTime: b.endTime, status: b.status }));
 
-        // 过滤掉已经有 block 的 task
-        const scheduledTaskIds = new Set(blocks.map((b) => b.taskId).filter(Boolean) as string[]);
-        const tasksToSchedule = tasks.filter((t) => !scheduledTaskIds.has(t.id));
+            const scheduledTaskIds = new Set(blocks.map((b) => b.taskId).filter(Boolean) as string[]);
+            const tasksToSchedule = tasks.filter((t) => !scheduledTaskIds.has(t.id));
 
-        if (tasksToSchedule.length === 0) {
-            setError("All tasks are already scheduled for this date.");
-            return;
+            if (tasksToSchedule.length === 0) {
+                setError("All tasks are already scheduled for this date.");
+                return;
+            }
+
+            // 有固定时间的 task 直接创建，不走引擎
+            console.log("date:", date);
+            console.log("tasksToSchedule:", tasksToSchedule.map(t => ({
+                title: t.title,
+                scheduledDate: t.scheduledDate,
+                scheduledStartTime: t.scheduledStartTime,
+            })));
+
+            const pinnedTasks = tasksToSchedule.filter(
+                (t) => t.scheduledDate === date && t.scheduledStartTime
+            );
+            const freeTasks = tasksToSchedule.filter(
+                (t) => !(t.scheduledDate === date && t.scheduledStartTime)
+            );
+
+            console.log("pinnedTasks:", pinnedTasks.map(t => ({ title: t.title, id: t.id })));
+            console.log("freeTasks:", freeTasks.map(t => ({ title: t.title, id: t.id })));
+
+            const pinnedCreated = await Promise.all(
+                pinnedTasks.map((t) =>
+                    apiCreateBlock({
+                        title: t.title,
+                        date,
+                        startTime: t.scheduledStartTime!,
+                        endTime: calcEndTime(t.scheduledStartTime!, t.estimatedMinutes),
+                        status: "scheduled",
+                        taskId: t.id,
+                    })
+                )
+            );
+
+            const pinnedOccupied: EngineOccupiedBlock[] = pinnedCreated.map((b) => ({
+                taskId: b.taskId,
+                title: b.title,
+                startTime: b.startTime,
+                endTime: b.endTime,
+                status: b.status,
+            }));
+
+            let engineCreated: ScheduleBlockAPI[] = [];
+            if (freeTasks.length > 0) {
+                const { data: previewBlocks, meta } = await apiEnginePreview({
+                    date,
+                    mode,
+                    tasks: freeTasks,
+                    occupiedBlocks: [...occupiedBlocks, ...pinnedOccupied],
+                    instruction: instruction || undefined,
+                });
+                setEngineMeta(meta);
+                engineCreated = await Promise.all(
+                    previewBlocks.map((b) =>
+                        apiCreateBlock({ title: b.title, date, startTime: b.startTime, endTime: b.endTime, status: b.status, taskId: b.taskId })
+                    )
+                );
+            }
+
+            setBlocks((current) =>
+                [...current, ...pinnedCreated, ...engineCreated].sort((a, b) =>
+                    a.startTime.localeCompare(b.startTime)
+                )
+            );
+        } catch (err) {
+            setError(err instanceof Error ? err.message : String(err));
+        } finally {
+            setGenerating(false);
         }
-
-        const { data: previewBlocks, meta } = await apiEnginePreview({
-            date, mode, tasks: tasksToSchedule, occupiedBlocks, instruction: instruction || undefined,
-        });
-        setEngineMeta(meta);
-        const created = await Promise.all(previewBlocks.map((b) => apiCreateBlock({ title: b.title, date, startTime: b.startTime, endTime: b.endTime, status: b.status, taskId: b.taskId })));
-        setBlocks((current) => [...current, ...created].sort((a, b) => a.startTime.localeCompare(b.startTime)));
-    } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-    } finally {
-        setGenerating(false);
     }
-}
     async function handleRegenerate() {
         setRegenerating(true);
         setError("");
@@ -228,12 +275,56 @@ export default function SchedulePage() {
             const fixedBlocks = blocks.filter((b) => b.status === "completed");
             const fixedTaskIds = new Set(fixedBlocks.map((b) => b.taskId).filter(Boolean) as string[]);
             const tasksToReplan = tasks.filter((t) => !fixedTaskIds.has(t.id));
-            const occupiedBlocks: EngineOccupiedBlock[] = fixedBlocks.map((b) => ({ taskId: b.taskId, title: b.title, startTime: b.startTime, endTime: b.endTime, status: b.status }));
-            const { data: previewBlocks, meta } = await apiEnginePreview({ date, mode, tasks: tasksToReplan, occupiedBlocks, instruction: instruction || undefined });
-            setEngineMeta(meta);
+            const occupiedBlocks: EngineOccupiedBlock[] = fixedBlocks.map((b) => ({
+                taskId: b.taskId, title: b.title, startTime: b.startTime, endTime: b.endTime, status: b.status,
+            }));
+
+            const pinnedTasks = tasksToReplan.filter(
+                (t) => t.scheduledDate === date && t.scheduledStartTime
+            );
+            const freeTasks = tasksToReplan.filter(
+                (t) => !(t.scheduledDate === date && t.scheduledStartTime)
+            );
+
             await Promise.all(blocks.filter((b) => b.status !== "completed").map((b) => apiDeleteBlock(b._id)));
-            const created = await Promise.all(previewBlocks.map((b) => apiCreateBlock({ title: b.title, date, startTime: b.startTime, endTime: b.endTime, status: b.status, taskId: b.taskId })));
-            setBlocks([...fixedBlocks, ...created].sort((a, b) => a.startTime.localeCompare(b.startTime)));
+
+            const pinnedCreated = await Promise.all(
+                pinnedTasks.map((t) =>
+                    apiCreateBlock({
+                        title: t.title,
+                        date,
+                        startTime: t.scheduledStartTime!,
+                        endTime: calcEndTime(t.scheduledStartTime!, t.estimatedMinutes),
+                        status: "scheduled",
+                        taskId: t.id,
+                    })
+                )
+            );
+
+            const pinnedOccupied: EngineOccupiedBlock[] = pinnedCreated.map((b) => ({
+                taskId: b.taskId, title: b.title, startTime: b.startTime, endTime: b.endTime, status: b.status,
+            }));
+
+            let engineCreated: ScheduleBlockAPI[] = [];
+            if (freeTasks.length > 0) {
+                const { data: previewBlocks, meta } = await apiEnginePreview({
+                    date, mode, tasks: freeTasks,
+                    occupiedBlocks: [...occupiedBlocks, ...pinnedOccupied],
+                    instruction: instruction || undefined,
+                });
+                setEngineMeta(meta);
+                engineCreated = await Promise.all(
+                    previewBlocks.map((b) =>
+                        apiCreateBlock({ title: b.title, date, startTime: b.startTime, endTime: b.endTime, status: b.status, taskId: b.taskId })
+                    )
+                );
+            }
+
+            setBlocks(
+                [...fixedBlocks, ...pinnedCreated, ...engineCreated].sort((a, b) =>
+                    a.startTime.localeCompare(b.startTime)
+                )
+            );
         } catch (err) {
             setError(err instanceof Error ? err.message : String(err));
         } finally {
@@ -312,37 +403,29 @@ export default function SchedulePage() {
 
     return (
         <div style={{ minHeight: "100vh", background: "#f9fafb" }}>
+            
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
             <main style={{ maxWidth: 760, margin: "0 auto", padding: "32px 16px" }}>
 
-                {/* Header */}
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 32 }}>
                     <div>
-                        <h1 style={{ fontSize: 22, fontWeight: 600, color: "#111827", letterSpacing: "-0.01em", marginBottom: 2 }}>
-                            Schedule
-                        </h1>
+                        <h1 style={{ fontSize: 22, fontWeight: 600, color: "#111827", letterSpacing: "-0.01em", marginBottom: 2 }}>Schedule</h1>
                         <p style={{ fontSize: 13, color: "#9ca3af" }}>Generate and manage your daily schedule</p>
                     </div>
-                    <Link
-                        href="/timetable"
-                        style={{ fontSize: 13, fontWeight: 500, color: "#fff", background: "#111827", borderRadius: 10, padding: "8px 16px", textDecoration: "none" }}
-                    >
+                    <Link href="/timetable" style={{ fontSize: 13, fontWeight: 500, color: "#fff", background: "#111827", borderRadius: 10, padding: "8px 16px", textDecoration: "none" }}>
                         View Timetable
                     </Link>
                 </div>
 
-                {/* Error */}
                 {error && (
                     <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "12px 16px", marginBottom: 16 }}>
                         <p style={{ fontSize: 13, color: "#b91c1c", margin: 0 }}>{error}</p>
                     </div>
                 )}
 
-                {/* Engine Controls */}
                 <div style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: 16, padding: "20px", marginBottom: 16 }}>
                     <p style={{ fontSize: 15, fontWeight: 600, color: "#111827", marginBottom: 16 }}>Engine Controls</p>
-
                     <div style={{ marginBottom: 16 }}>
                         <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>Engine Mode</p>
                         <div style={{ display: "inline-flex", border: "1px solid #e5e7eb", borderRadius: 10, padding: 3, background: "#f9fafb" }}>
@@ -353,27 +436,14 @@ export default function SchedulePage() {
                             ))}
                         </div>
                     </div>
-
                     <div style={{ marginBottom: 16 }}>
                         <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>Schedule Date</p>
-                        <input
-                            type="date"
-                            value={date}
-                            onChange={(e) => setDate(e.target.value)}
-                            style={{ fontSize: 13, border: "1px solid #e5e7eb", borderRadius: 10, padding: "8px 12px", color: "#111827", background: "#fff", outline: "none" }}
-                        />
+                        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ fontSize: 13, border: "1px solid #e5e7eb", borderRadius: 10, padding: "8px 12px", color: "#111827", background: "#fff", outline: "none" }} />
                     </div>
-
                     <div style={{ marginBottom: 20 }}>
                         <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>AI Instruction <span style={{ color: "#d1d5db" }}>(optional)</span></p>
-                        <textarea
-                            value={instruction}
-                            onChange={(e) => setInstruction(e.target.value)}
-                            placeholder="e.g. Move easy low-priority tasks earlier as warm-up work."
-                            style={{ width: "100%", fontSize: 13, border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 12px", color: "#111827", background: "#fff", outline: "none", minHeight: 80, resize: "vertical", boxSizing: "border-box" }}
-                        />
+                        <textarea value={instruction} onChange={(e) => setInstruction(e.target.value)} placeholder="e.g. Move easy low-priority tasks earlier as warm-up work." style={{ width: "100%", fontSize: 13, border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 12px", color: "#111827", background: "#fff", outline: "none", minHeight: 80, resize: "vertical", boxSizing: "border-box" }} />
                     </div>
-
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                         <button onClick={handleGenerate} disabled={generating || tasks.length === 0} style={{ fontSize: 13, fontWeight: 500, padding: "9px 18px", borderRadius: 10, border: "none", cursor: generating || tasks.length === 0 ? "not-allowed" : "pointer", background: "#111827", color: "#fff", opacity: generating || tasks.length === 0 ? 0.5 : 1 }}>
                             {generating ? "Generating..." : "Generate Daily Schedule"}
@@ -387,7 +457,6 @@ export default function SchedulePage() {
                     </div>
                 </div>
 
-                {/* Active Tasks */}
                 <div style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: 16, padding: "20px", marginBottom: 16 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
                         <p style={{ fontSize: 15, fontWeight: 600, color: "#111827" }}>
@@ -397,7 +466,6 @@ export default function SchedulePage() {
                             {loadingTasks ? "Refreshing..." : "Refresh"}
                         </button>
                     </div>
-
                     {tasks.length === 0 ? (
                         <div style={{ textAlign: "center", padding: "24px 0" }}>
                             <p style={{ fontSize: 13, color: "#9ca3af", marginBottom: 8 }}>No active tasks found.</p>
@@ -410,27 +478,29 @@ export default function SchedulePage() {
                                     <span style={{ fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 999, ...priorityColor(task.priority) }}>{task.priority}</span>
                                     <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "#111827" }}>{task.title}</span>
                                     <span style={{ fontSize: 12, color: "#9ca3af" }}>{task.estimatedMinutes} min</span>
-                                    {task.deadline && <span style={{ fontSize: 11, color: "#9ca3af" }}>due {task.deadline}</span>}
+                                    {task.deadline && <span style={{ fontSize: 11, color: "#9ca3af" }}>due {task.deadline.slice(0, 10)}</span>}
+                                    {task.scheduledDate && task.scheduledStartTime && (
+                                        <span style={{ fontSize: 11, color: "#2563eb", background: "#eff6ff", padding: "2px 8px", borderRadius: 999 }}>
+                                            {task.scheduledDate} {task.scheduledStartTime}
+                                        </span>
+                                    )}
                                 </div>
                             ))}
                         </div>
                     )}
                 </div>
 
-                {/* Engine Result Meta */}
                 {engineMeta && (
                     <div style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: 16, padding: "20px", marginBottom: 16 }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                             <p style={{ fontSize: 15, fontWeight: 600, color: "#111827" }}>Engine Result</p>
                             <span style={{ fontSize: 12, color: "#9ca3af" }}>Requested: {engineMeta.requestedMode} · Used: {engineMeta.usedMode}</span>
                         </div>
-
                         {engineMeta.fallback && (
                             <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13, color: "#92400e" }}>
                                 {engineMeta.fallback.code}: {engineMeta.fallback.message}
                             </div>
                         )}
-
                         {engineMeta.scheduledReasoning.length > 0 && (
                             <div style={{ marginBottom: 12 }}>
                                 <p style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", letterSpacing: "0.05em", marginBottom: 6 }}>REASONING</p>
@@ -441,7 +511,6 @@ export default function SchedulePage() {
                                 ))}
                             </div>
                         )}
-
                         {engineMeta.overflow.length > 0 && (
                             <div style={{ marginBottom: 12 }}>
                                 <p style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", letterSpacing: "0.05em", marginBottom: 6 }}>OVERFLOW</p>
@@ -452,7 +521,6 @@ export default function SchedulePage() {
                                 ))}
                             </div>
                         )}
-
                         {engineMeta.unscheduled.length > 0 && (
                             <div>
                                 <p style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", letterSpacing: "0.05em", marginBottom: 6 }}>UNSCHEDULED</p>
@@ -463,26 +531,18 @@ export default function SchedulePage() {
                                 ))}
                             </div>
                         )}
-
                         {engineMeta.overflow.length === 0 && engineMeta.unscheduled.length === 0 && (
                             <p style={{ fontSize: 13, color: "#9ca3af" }}>All tasks fit within the normal schedule window.</p>
                         )}
                     </div>
                 )}
 
-                {/* Add Fixed Block */}
                 <div style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: 16, padding: "20px", marginBottom: 16 }}>
                     <p style={{ fontSize: 15, fontWeight: 600, color: "#111827", marginBottom: 4 }}>Add Fixed Block</p>
                     <p style={{ fontSize: 13, color: "#9ca3af", marginBottom: 16 }}>Fixed blocks (e.g. lunch, meetings) are treated as occupied by the engine.</p>
-
                     <form onSubmit={handleSubmit}>
                         <div style={{ marginBottom: 12 }}>
-                            <input
-                                value={title}
-                                onChange={(e) => setTitle(e.target.value)}
-                                placeholder="e.g. Lunch break, Team meeting"
-                                style={{ width: "100%", fontSize: 13, border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 12px", color: "#111827", background: "#fff", outline: "none", boxSizing: "border-box" }}
-                            />
+                            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Lunch break, Team meeting" style={{ width: "100%", fontSize: 13, border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 12px", color: "#111827", background: "#fff", outline: "none", boxSizing: "border-box" }} />
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
                             <div>
@@ -508,13 +568,11 @@ export default function SchedulePage() {
                     </form>
                 </div>
 
-                {/* Daily Schedule */}
                 <div>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                         <p style={{ fontSize: 15, fontWeight: 600, color: "#111827" }}>Daily Schedule</p>
                         {loadingBlocks && <div style={{ width: 16, height: 16, border: "2px solid #e5e7eb", borderTopColor: "#6b7280", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />}
                     </div>
-
                     {blocks.length === 0 && !loadingBlocks ? (
                         <div style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: 16, padding: "48px 24px", textAlign: "center" }}>
                             <p style={{ fontSize: 14, color: "#9ca3af" }}>No blocks yet. Generate a schedule or add a fixed block.</p>
@@ -541,24 +599,14 @@ export default function SchedulePage() {
                                                 {block.status}
                                             </div>
                                         </div>
-
                                         <div style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: 15 }}>
                                             <span style={{ fontSize: 11, color: "#9ca3af", marginRight: 6 }}>Mark as:</span>
                                             {(["scheduled", "completed", "missed"] as const).map((s) => (
-                                                <button
-                                                    key={s}
-                                                    onClick={() => handleStatusChange(block._id, s)}
-                                                    disabled={actionId === block._id}
-                                                    style={{ fontSize: 11, fontWeight: block.status === s ? 600 : 400, padding: "4px 10px", borderRadius: 999, border: `1px solid ${block.status === s ? "#d1d5db" : "#f3f4f6"}`, background: block.status === s ? "#f3f4f6" : "#fff", color: block.status === s ? "#111827" : "#6b7280", cursor: "pointer", textTransform: "capitalize" }}
-                                                >
+                                                <button key={s} onClick={() => handleStatusChange(block._id, s)} disabled={actionId === block._id} style={{ fontSize: 11, fontWeight: block.status === s ? 600 : 400, padding: "4px 10px", borderRadius: 999, border: `1px solid ${block.status === s ? "#d1d5db" : "#f3f4f6"}`, background: block.status === s ? "#f3f4f6" : "#fff", color: block.status === s ? "#111827" : "#6b7280", cursor: "pointer", textTransform: "capitalize" }}>
                                                     {s}
                                                 </button>
                                             ))}
-                                            <button
-                                                onClick={() => { if (confirm("Delete this block?")) handleDelete(block._id); }}
-                                                disabled={actionId === block._id}
-                                                style={{ fontSize: 11, padding: "4px 10px", borderRadius: 999, border: "1px solid #fee2e2", background: "#fff", color: "#ef4444", cursor: "pointer", marginLeft: "auto" }}
-                                            >
+                                            <button onClick={() => { if (confirm("Delete this block?")) handleDelete(block._id); }} disabled={actionId === block._id} style={{ fontSize: 11, padding: "4px 10px", borderRadius: 999, border: "1px solid #fee2e2", background: "#fff", color: "#ef4444", cursor: "pointer", marginLeft: "auto" }}>
                                                 Delete
                                             </button>
                                         </div>

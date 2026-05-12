@@ -4,43 +4,29 @@ import TaskModel from "@/models/Task";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/jwt";
 
-type AuthTokenPayload = {
-  id?: string;
-};
-
 async function getCurrentUserId(): Promise<string | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
   if (!token) return null;
-
   try {
-    const decoded = verifyToken(token) as AuthTokenPayload;
-    return decoded.id ?? null;
+    const decoded: any = verifyToken(token);
+    return decoded.id;
   } catch {
     return null;
   }
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     await dbConnect();
     const userId = await getCurrentUserId();
-    
     if (!userId) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
-    
-    const { searchParams } = new URL(request.url);
-    const includeCompleted = searchParams.get("includeCompleted") === "true";
-    const query = includeCompleted
-      ? { userId }
-      : {
-          userId,
-          status: { $in: ["todo", "in_progress"] },
-        };
-
-    const tasks = await TaskModel.find(query).sort({ createdAt: -1 });
-    
+    const tasks = await TaskModel.find({
+      userId,
+      status: { $in: ["todo", "in_progress"] },
+    }).sort({ createdAt: -1 });
     return NextResponse.json({ success: true, data: tasks });
   } catch (error) {
     return NextResponse.json(
@@ -54,19 +40,20 @@ export async function POST(request: Request) {
   try {
     await dbConnect();
     const userId = await getCurrentUserId();
-    
     if (!userId) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
-    
+
     const body = await request.json();
-    const { 
-      title, 
-      description, 
-      priority, 
-      estimatedMinutes, 
+    const {
+      title,
+      description,
+      priority,
+      estimatedMinutes,
       deadline,
-      status = "todo"
+      status = "todo",
+      scheduledDate,
+      scheduledStartTime,
     } = body;
 
     if (!title || typeof title !== "string" || !title.trim()) {
@@ -76,14 +63,30 @@ export async function POST(request: Request) {
       );
     }
 
+    // 验证格式
+    if (scheduledDate && !/^\d{4}-\d{2}-\d{2}$/.test(scheduledDate)) {
+      return NextResponse.json(
+        { success: false, error: "scheduledDate must be YYYY-MM-DD" },
+        { status: 400 }
+      );
+    }
+    if (scheduledStartTime && !/^\d{2}:\d{2}$/.test(scheduledStartTime)) {
+      return NextResponse.json(
+        { success: false, error: "scheduledStartTime must be HH:MM" },
+        { status: 400 }
+      );
+    }
+
     const task = await TaskModel.create({
       title: title.trim(),
       description: description ? description.trim() : "",
       priority: priority || "medium",
-      status: status,
+      status,
       estimatedMinutes: estimatedMinutes || 60,
       deadline: deadline ? new Date(deadline) : null,
-      userId: userId,
+      scheduledDate: scheduledDate || null,
+      scheduledStartTime: scheduledStartTime || null,
+      userId,
     });
 
     return NextResponse.json({ success: true, data: task }, { status: 201 });

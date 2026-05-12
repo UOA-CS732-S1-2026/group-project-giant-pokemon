@@ -3,24 +3,21 @@ import { NextResponse } from "next/server";
 import User from "@/models/User";
 import { dbConnect } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/jwt";
-
-type AuthTokenPayload = {
-  id?: string;
-};
+import { cookies } from "next/headers";
 
 export async function PATCH(req: Request) {
   await dbConnect();
 
-  // 1. Read token from cookies
-  const cookie = req.headers.get("cookie");
-  const token = cookie?.split("token=")[1];
+  // 1. Read token using next/headers
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
 
   if (!token) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
   // 2. Decode token to get user ID
-  const decoded = verifyToken(token) as AuthTokenPayload;
+  const decoded = verifyToken(token) as { id: string };
   const userId = decoded.id;
 
   if (!userId) {
@@ -30,7 +27,7 @@ export async function PATCH(req: Request) {
   // 3. Read incoming fields
   const body = await req.json();
 
-  // 4. Update user with $set
+  // 4. Update user
   const updatedUser = await User.findByIdAndUpdate(
     userId,
     {

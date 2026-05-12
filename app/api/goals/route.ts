@@ -1,55 +1,60 @@
+import { NextResponse } from "next/server";
 import { dbConnect } from "@/lib/mongodb";
-import Goal from "@/models/Goal";
+import { Goal } from "@/models/Goal";
+import { cookies } from "next/headers";
+import { verifyToken } from "@/lib/jwt";
 
-export async function POST (request: Request) {
-    try {
-        await dbConnect();
-        const body = await request.json();
-        const { title, description, status, targetDate, progress, tags } = body;
+async function getCurrentUserId(): Promise<string | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
+  if (!token) return null;
+  try {
+    const decoded: any = verifyToken(token);
+    return decoded.id;
+  } catch {
+    return null;
+  }
+}
 
-        // Basic validation for required fields
-        if (!title || typeof title !== 'string' || !title.trim()){
-            return Response.json(
-                { success: false, error: "Title is required and must be a non-empty string." },
-                { status: 400 }
-            );
-        }
-
-        const newGoal = await Goal.create({
-            title: title.trim(),
-            description: description ? description.trim() : '',
-            status: status || 'active',
-            targetDate: targetDate ? new Date(targetDate) : undefined,
-            progress: typeof progress === 'number' ? progress : 0,
-            tags: Array.isArray(tags) ? tags : [],
-        });
-
-        return Response.json(
-            { success: true, data: newGoal },
-            { status: 201 }
-        );
-    } catch (error) {
-        return Response.json(
-            { success: false, error: error instanceof Error ? error.message : String(error) },
-            { status: 500 }
-        );
+export async function GET() {
+  try {
+    await dbConnect();
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
-}   
+    const goals = await Goal.find({ userId }).sort({ createdAt: -1 });
+    return NextResponse.json({ success: true, data: goals });
+  } catch (error) {
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 });
+  }
+}
 
-export async function GET () {
-    try {
-        await dbConnect();
-        const goals = await Goal.find().sort({ createdAt: -1 });
-
-        return Response.json(
-            { success: true, data: goals },
-            { status: 200 }
-        );
-    } catch (error) {
-        return Response.json(
-            { success: false, error: error instanceof Error ? error.message : String(error) },
-            { status: 500 }
-        );
+export async function POST(request: Request) {
+  try {
+    await dbConnect();
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
-}   
+    const body = await request.json();
+    const { title, description, status, progress, tags } = body;
 
+    if (!title?.trim()) {
+      return NextResponse.json({ success: false, error: "Title is required" }, { status: 400 });
+    }
+
+    const goal = await Goal.create({
+      title: title.trim(),
+      description: description?.trim() || "",
+      status: status || "active",
+      progress: progress || 0,
+      tags: tags || [],
+      userId,
+    });
+
+    return NextResponse.json({ success: true, data: goal }, { status: 201 });
+  } catch (error) {
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 });
+  }
+}

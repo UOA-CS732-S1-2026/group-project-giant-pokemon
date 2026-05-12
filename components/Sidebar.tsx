@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   HomeIcon,
   FlagIcon,
@@ -8,9 +9,22 @@ import {
   CalendarDaysIcon,
   SparklesIcon,
   UserCircleIcon,
+  ClockIcon,
 } from "@heroicons/react/24/outline";
 
 export default function Sidebar() {
+  const pathname = usePathname();
+
+  const navItems = [
+    { name: "Profile", href: "/profile", icon: UserCircleIcon },
+    { name: "Goals", href: "/goals", icon: FlagIcon },
+    { name: "Tasks", href: "/tasks", icon: CheckCircleIcon },
+    { name: "Schedule", href: "/schedule", icon: CalendarDaysIcon },
+    { name: "Timetable", href: "/timetable", icon: ClockIcon },  // ← 新增
+    { name: "Ocean", href: "/productivity-ocean", icon: SparklesIcon },
+    { name: "Dashboard", href: "/dashboard", icon: HomeIcon },
+  ];
+
   return (
     <aside className="
       w-72 
@@ -31,29 +45,25 @@ export default function Sidebar() {
 
       {/* NAVIGATION */}
       <nav className="flex flex-col gap-4 font-medium text-gray-300">
-         <Link href="/profile" className="flex items-center gap-3 hover:text-blue-400 transition">
-          <UserCircleIcon className="w-5 h-5" /> Profile
-        </Link>
-
-        <Link href="/goals" className="flex items-center gap-3 hover:text-blue-400 transition">
-          <FlagIcon className="w-5 h-5" /> Goals
-        </Link>
-
-        <Link href="/tasks" className="flex items-center gap-3 hover:text-blue-400 transition">
-          <CheckCircleIcon className="w-5 h-5" /> Tasks
-        </Link>
-
-        <Link href="/schedule" className="flex items-center gap-3 hover:text-blue-400 transition">
-          <CalendarDaysIcon className="w-5 h-5" /> Schedule
-        </Link>
-
-        <Link href="/productivity-ocean" className="flex items-center gap-3 hover:text-blue-400 transition">
-          <SparklesIcon className="w-5 h-5" /> Ocean
-        </Link>
-
-        <Link href="/dashboard" className="flex items-center gap-3 hover:text-blue-400 transition">
-          <HomeIcon className="w-5 h-5" /> Dashboard
-        </Link>
+        {navItems.map((item) => {
+          const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`
+                flex items-center gap-3 transition rounded-lg px-2 py-1.5
+                ${isActive 
+                  ? "bg-blue-500/20 text-blue-300" 
+                  : "hover:text-blue-400 hover:bg-blue-500/10"
+                }
+              `}
+            >
+              <Icon className="w-5 h-5" /> {item.name}
+            </Link>
+          );
+        })}
       </nav>
 
       {/* LOGOUT BUTTON */}
