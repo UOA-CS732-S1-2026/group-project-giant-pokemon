@@ -10,7 +10,7 @@ async function getCurrentUserId(): Promise<string | null> {
   const token = cookieStore.get("token")?.value;
   if (!token) return null;
   try {
-    const decoded: any = verifyToken(token);
+    const decoded = verifyToken(token) as { id: string };
     return decoded.id;
   } catch {
     return null;
@@ -32,7 +32,13 @@ export async function PUT(request: Request, context: RouteContext) {
 
     const body = await request.json();
     const { title, description, status, progress, tags } = body;
-    const update: any = {};
+    const update: {
+      title?: string;
+      description?: string;
+      status?: string;
+      progress?: number;
+      tags?: string[];
+    } = {};
     if (title !== undefined) update.title = title.trim();
     if (description !== undefined) update.description = description.trim();
     if (status !== undefined) update.status = status;

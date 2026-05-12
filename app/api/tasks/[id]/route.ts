@@ -10,7 +10,7 @@ async function getCurrentUserId(): Promise<string | null> {
   const token = cookieStore.get("token")?.value;
   if (!token) return null;
   try {
-    const decoded: any = verifyToken(token);
+    const decoded = verifyToken(token) as { id: string };
     return decoded.id;
   } catch {
     return null;
@@ -37,7 +37,17 @@ export async function PUT(request: Request, context: RouteContext) {
     const body = await request.json();
     const { title, description, priority, status, estimatedMinutes, deadline, scheduledDate, scheduledStartTime } = body;
 
-    const updateData: any = {};
+    const updateData: {
+      title?: string;
+      description?: string;
+      priority?: string;
+      status?: string;
+      estimatedMinutes?: number;
+      deadline?: Date | null;
+      scheduledDate?: string | null;
+      scheduledStartTime?: string | null;
+    } = {};
+    
     if (title !== undefined) updateData.title = title.trim();
     if (description !== undefined) updateData.description = description.trim();
     if (priority !== undefined) updateData.priority = priority;

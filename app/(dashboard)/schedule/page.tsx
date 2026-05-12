@@ -61,7 +61,16 @@ async function apiGetTasks(): Promise<DBTask[]> {
     const res = await fetch("/api/tasks");
     const json = await res.json();
     if (!json.success) throw new Error(json.error ?? "Failed to fetch tasks.");
-    return json.data.map((t: any) => ({
+    return json.data.map((t: {
+        _id: string;
+        title: string;
+        priority: string;
+        status: string;
+        estimatedMinutes: number;
+        deadline?: string;
+        scheduledDate?: string;
+        scheduledStartTime?: string;
+    }) => ({
         id: t._id,
         title: t.title,
         priority: t.priority,

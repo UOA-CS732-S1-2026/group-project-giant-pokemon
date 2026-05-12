@@ -89,7 +89,15 @@ export default function TasksPage() {
   const [nlInput, setNlInput] = useState("");
   const [nlParsing, setNlParsing] = useState(false);
   const [nlSaving, setNlSaving] = useState(false);
-  const [nlPreview, setNlPreview] = useState<any[]>([]);
+  const [nlPreview, setNlPreview] = useState<Array<{
+    title: string;
+    description?: string;
+    priority: string;
+    estimatedMinutes: number;
+    deadline?: string;
+    scheduledDate?: string;
+    scheduledStartTime?: string;
+  }>>([]);
   const [nlError, setNlError] = useState("");
   const [nlSuccess, setNlSuccess] = useState(false);
 
@@ -99,7 +107,7 @@ export default function TasksPage() {
       setError("");
 
       const res = await fetch("/api/tasks");
-      const result = await res.json();
+      const result = await res.json() as { success: boolean; data: TaskAPI[]; message?: string };
 
       if (!res.ok || !result.success) {
         throw new Error(result.message || "Failed to fetch tasks");
@@ -385,7 +393,15 @@ export default function TasksPage() {
               </p>
 
               <div className="space-y-2 mb-4">
-                {nlPreview.map((task, i) => (
+                {nlPreview.map((task: {
+                  title: string;
+                  description?: string;
+                  priority: string;
+                  estimatedMinutes: number;
+                  deadline?: string;
+                  scheduledDate?: string;
+                  scheduledStartTime?: string;
+                }, i) => (
                   <div key={i} className="bg-white border border-gray-200 rounded-lg p-3">
                     <p className="font-semibold text-gray-800 text-sm mb-2">{task.title}</p>
                     <div className="flex flex-wrap gap-2 mb-2">

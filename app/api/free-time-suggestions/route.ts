@@ -23,7 +23,7 @@ async function getCurrentUserId(): Promise<string | null> {
   const token = cookieStore.get("token")?.value;
   if (!token) return null;
   try {
-    const decoded: any = verifyToken(token);
+    const decoded = verifyToken(token) as { id: string };
     return decoded.id;
   } catch {
     return null;
@@ -159,8 +159,8 @@ export async function GET(request: Request) {
     }
 
     const goalsText = goals.length > 0
-      ? goals.map((g: any) => `- ${g.title}${g.description ? `: ${g.description}` : ""}`).join("\n")
-      : "No goals set.";
+    ? goals.map((g: { title: string; description?: string }) => `- ${g.title}${g.description ? `: ${g.description}` : ""}`).join("\n")
+    : "No goals set.";
 
     // Build prompt - AI only returns suggestion content, no slot or duration
     const freeSlotsDescription = freeSlots.map((s, i) => 
@@ -199,7 +199,7 @@ RULES:
 
     // Pair AI suggestions with actual free slots
     const suggestions = freeSlots.map((slot, index) => {
-      const aiSuggestion = aiSuggestions[index] || {};
+      const aiSuggestion = (aiSuggestions[index] || {}) as { suggestion?: string; category?: string };
       return {
         slot: `${slot.start}-${slot.end}`,
         duration: `${(slot.minutes / 60).toFixed(1)}h`,
