@@ -47,7 +47,9 @@ Input: ${input}`;
       throw new Error("AI API request failed");
     }
 
-    const aiData = await response.json();
+    const aiData = await response.json() as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
     const rawText = aiData.choices?.[0]?.message?.content?.trim();
     if (!rawText) throw new Error("Empty response from AI");
 
@@ -55,12 +57,20 @@ Input: ${input}`;
     if (!Array.isArray(parsed)) throw new Error("Invalid response format");
 
     const results = parsed
-      .filter((t: any) => t.title?.trim())
-      .map((t: any) => ({
+      .filter((t: { title?: string }) => t.title?.trim())
+      .map((t: {
+        title?: string;
+        description?: string;
+        priority?: string;
+        estimatedMinutes?: number;
+        deadline?: string | null;
+        scheduledDate?: string | null;
+        scheduledStartTime?: string | null;
+      }) => ({
         title: String(t.title).trim().slice(0, 200),
         description: String(t.description || "").trim(),
-        priority: ["low", "medium", "high"].includes(t.priority) ? t.priority : "medium",
-        estimatedMinutes: Number.isInteger(t.estimatedMinutes) && t.estimatedMinutes >= 1 && t.estimatedMinutes <= 480 ? t.estimatedMinutes : 60,
+        priority: ["low", "medium", "high"].includes(t.priority || "") ? t.priority : "medium",
+        estimatedMinutes: Number.isInteger(t.estimatedMinutes) && t.estimatedMinutes! >= 1 && t.estimatedMinutes! <= 480 ? t.estimatedMinutes : 60,
         deadline: t.deadline && /^\d{4}-\d{2}-\d{2}$/.test(t.deadline) ? t.deadline : null,
         scheduledDate: t.scheduledDate && /^\d{4}-\d{2}-\d{2}$/.test(t.scheduledDate) ? t.scheduledDate : null,
         scheduledStartTime: t.scheduledStartTime && /^\d{2}:\d{2}$/.test(t.scheduledStartTime) ? t.scheduledStartTime : null,
