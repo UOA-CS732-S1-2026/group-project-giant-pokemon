@@ -4,6 +4,10 @@ import User from "@/models/User";
 import { dbConnect } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/jwt";
 
+type AuthTokenPayload = {
+  id?: string;
+};
+
 export async function PATCH(req: Request) {
   await dbConnect();
 
@@ -16,8 +20,12 @@ export async function PATCH(req: Request) {
   }
 
   // 2. Decode token to get user ID
-  const decoded = verifyToken(token);
+  const decoded = verifyToken(token) as AuthTokenPayload;
   const userId = decoded.id;
+
+  if (!userId) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
 
   // 3. Read incoming fields
   const body = await req.json();

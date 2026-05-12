@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Navbar from "@/components/Navbar";
+import Sidebar from "@/components/Sidebar";
 
 type ScheduleBlock = {
   _id: string;
@@ -156,6 +156,23 @@ const getFreeRowHeight = (durationMinutes: number): number => {
 };
 
 export default function TimetablePage() {
+  return (
+    <Suspense fallback={<TimetableLoading />}>
+      <TimetableContent />
+    </Suspense>
+  );
+}
+
+function TimetableLoading() {
+  return (
+    <div style={{ minHeight: "100vh", background: "#f0f2f5", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: 28, height: 28, border: "2px solid #e5e7eb", borderTopColor: "#6b7280", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
+function TimetableContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [user, setUser] = useState<TimetableUser | null>(null);
@@ -255,17 +272,12 @@ export default function TimetablePage() {
   const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   if (loading) {
-    return (
-      <div style={{ minHeight: "100vh", background: "#f0f2f5", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ width: 28, height: 28, border: "2px solid #e5e7eb", borderTopColor: "#6b7280", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
+    return <TimetableLoading />;
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f0f2f5" }}>
-      <Navbar />
+    <div style={{ minHeight: "100vh", background: "#f0f2f5", display: "flex" }}>
+      <Sidebar />
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         .smart-timetable {
@@ -330,7 +342,7 @@ export default function TimetablePage() {
         }
       `}</style>
 
-      <main style={{ maxWidth: 800, margin: "0 auto", padding: "32px 20px" }}>
+      <main style={{ flex: 1, maxWidth: 800, margin: "0 auto", padding: "32px 20px" }}>
 
         {/* Header */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>

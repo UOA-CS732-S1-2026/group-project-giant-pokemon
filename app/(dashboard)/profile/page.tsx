@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 type ProfileUser = {
   name?: string;
+  email?: string;
   role?: string;
   mainGoal?: string;
   startTime?: string;
@@ -14,6 +15,8 @@ type ProfileUser = {
   motivation?: string;
   priority?: string;
   scheduleStyle?: string;
+  xp?: number;
+  streak?: number;
 };
 
 export default function ProfilePage() {
@@ -100,6 +103,14 @@ export default function ProfilePage() {
     );
   }
 
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#050b24] text-white">
+        Unable to load profile.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-12 bg-gradient-to-b from-[#1a2b6d] via-[#0f1a4a] to-[#0a1138]
         border border-blue-500/20 rounded-3xl p-10 shadow-xl text-white">
@@ -138,7 +149,7 @@ export default function ProfilePage() {
             <div>
               <label className="block text-blue-200 font-medium mb-1">Email</label>
               <input
-                value={user.email}
+                value={user.email ?? ""}
                 disabled
                 className="w-full bg-[#0d1538] text-blue-300 border border-blue-500/20 rounded-lg px-4 py-2"
               />
@@ -176,7 +187,7 @@ export default function ProfilePage() {
 
           <div className="w-28 h-28 bg-white/20 rounded-full flex items-center justify-center
             text-4xl font-bold uppercase shadow-lg">
-            {user.name.charAt(0)}
+            {(user.name ?? "U").charAt(0)}
           </div>
 
           <p className="text-blue-100 text-sm mt-3">{role}</p>
@@ -187,9 +198,9 @@ export default function ProfilePage() {
 
           <div className="mt-6 space-y-2">
             <p className="text-blue-100">
-              XP: <span className="font-bold text-white">{user.xp} XP</span>
+              XP: <span className="font-bold text-white">{user.xp ?? 0} XP</span>
             </p>
-            <p className="text-blue-100">{user.streak} day streak</p>
+            <p className="text-blue-100">{user.streak ?? 0} day streak</p>
           </div>
 
         </div>
