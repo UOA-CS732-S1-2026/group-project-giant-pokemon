@@ -4,20 +4,24 @@ import TaskModel from "@/models/Task";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/jwt";
 
+type AuthTokenPayload = {
+  id?: string;
+};
+
 async function getCurrentUserId(): Promise<string | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
   if (!token) return null;
-  
+
   try {
-    const decoded: any = verifyToken(token);
-    return decoded.id;
+    const decoded = verifyToken(token) as AuthTokenPayload;
+    return decoded.id ?? null;
   } catch {
     return null;
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await dbConnect();
     const userId = await getCurrentUserId();
@@ -26,10 +30,16 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
     
-    const tasks = await TaskModel.find({ 
-      userId, 
-      status: { $in: ["todo", "in_progress"] }
-    }).sort({ createdAt: -1 });
+    const { searchParams } = new URL(request.url);
+    const includeCompleted = searchParams.get("includeCompleted") === "true";
+    const query = includeCompleted
+      ? { userId }
+      : {
+          userId,
+          status: { $in: ["todo", "in_progress"] },
+        };
+
+    const tasks = await TaskModel.find(query).sort({ createdAt: -1 });
     
     return NextResponse.json({ success: true, data: tasks });
   } catch (error) {

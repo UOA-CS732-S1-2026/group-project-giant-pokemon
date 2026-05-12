@@ -6,6 +6,7 @@ import {
   FlagIcon,
   CheckCircleIcon,
   CalendarDaysIcon,
+  SparklesIcon,
   UserCircleIcon,
 } from "@heroicons/react/24/outline";
 
@@ -44,6 +45,10 @@ export default function Sidebar() {
 
         <Link href="/schedule" className="flex items-center gap-3 hover:text-blue-400 transition">
           <CalendarDaysIcon className="w-5 h-5" /> Schedule
+        </Link>
+
+        <Link href="/productivity-ocean" className="flex items-center gap-3 hover:text-blue-400 transition">
+          <SparklesIcon className="w-5 h-5" /> Ocean
         </Link>
 
         <Link href="/dashboard" className="flex items-center gap-3 hover:text-blue-400 transition">
