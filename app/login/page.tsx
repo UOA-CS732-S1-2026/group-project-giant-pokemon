@@ -44,32 +44,46 @@ export default function AuthPage() {
 
   // Signup validation
   const validateSignup = () => {
-    const newErrors: typeof errors = {
-      email: "",
-      password: "",
-      confirmPassword: "",
-    };
+    const newErrors: any = {};
 
+    // NAME
+    if (!name.trim()) {
+        newErrors.name = "Name is required";
+    }
+
+    // EMAIL
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) newErrors.email = "Please enter a valid email";
+    if (!emailRegex.test(email)) {
+        newErrors.email = "Please enter a valid email";
+    }
 
-    if (password.length < 8) newErrors.password = "Password must be at least 8 characters";
-    else if (!/[A-Z]/.test(password)) newErrors.password = "Must contain an uppercase letter";
-    else if (!/[a-z]/.test(password)) newErrors.password = "Must contain a lowercase letter";
-    else if (!/[0-9]/.test(password)) newErrors.password = "Must contain a number";
-    else if (!/[^A-Za-z0-9]/.test(password)) newErrors.password = "Must contain a special character";
+    // PASSWORD
+    if (password.length < 8) {
+        newErrors.password = "Password must be at least 8 characters";
+    } else if (!/[A-Z]/.test(password)) {
+        newErrors.password = "Must contain an uppercase letter";
+    } else if (!/[a-z]/.test(password)) {
+        newErrors.password = "Must contain a lowercase letter";
+    } else if (!/[0-9]/.test(password)) {
+        newErrors.password = "Must contain a number";
+    } else if (!/[^A-Za-z0-9]/.test(password)) {
+        newErrors.password = "Must contain a special character";
+    }
 
-    if (password !== confirmPassword)
-      newErrors.confirmPassword = "Passwords do not match";
+    // CONFIRM PASSWORD
+    if (password !== confirmPassword) {
+        newErrors.confirmPassword = "Passwords do not match";
+    }
 
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
+        setShake(true);
+        setTimeout(() => setShake(false), 500);
+        return false;
     }
 
-    return Object.keys(newErrors).length === 0;
+    return true;
   };
 
   // LOGIN SUBMIT
