@@ -5,17 +5,16 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 FROM base AS deps
 COPY package.json package-lock.json ./
-# 安装类型定义文件
-RUN npm install --save-dev @types/jsonwebtoken
 RUN npm ci
 
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ARG MONGODB_URI=mongodb://mongo:27017/taskflow
+ARG JWT_SECRET=docker-build-only-secret
 ENV MONGODB_URI=$MONGODB_URI
-# 跳过类型检查（临时方案）
-RUN npm run build -- --no-lint
+ENV JWT_SECRET=$JWT_SECRET
+RUN npm run build
 
 FROM base AS runner
 ENV NODE_ENV=production

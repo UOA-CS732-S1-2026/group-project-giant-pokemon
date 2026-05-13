@@ -52,3 +52,33 @@
 - **Daily progress bar** — track completed vs. scheduled tasks
 - Tasks with scheduled time appear exactly where you placed them
 - Page: `/timetable`
+
+## Docker
+
+Run the app and MongoDB together:
+
+```bash
+docker compose up --build
+```
+
+Then open http://localhost:3000.
+
+The Compose setup uses `docker.defaults.env` for non-secret defaults so the
+project can start without private API keys. To enable live AI calls locally,
+create `.env.docker` and add your private values:
+
+```env
+GEMINI_API_KEY=
+DEEPSEEK_API_KEY=
+JWT_SECRET=
+```
+
+`.env.docker` is ignored by Git. Do not commit real API keys.
+
+Useful commands:
+
+```bash
+docker compose down
+docker compose down -v
+docker compose logs -f app
+```
