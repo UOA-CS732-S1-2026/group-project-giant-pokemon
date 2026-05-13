@@ -298,13 +298,12 @@ The project uses Git for version control and collaboration. To make collaboratio
 | Area | Contributor(s) |
 |---|---|
 | Authentication and profile | Khushba Ahmed (kahm047@aucklanduni.ac.nz) Sreelakshmi Gireesh (sgir748@aucklanduni.ac.nz) |
-| Task management | Marvin Xu (zxu734@aucklanduni.ac.nz) |
+| Task management/AI task parser | Marvin Xu (zxu734@aucklanduni.ac.nz) |
 | Goal management | Chao Yao (cyao907@aucklanduni.ac.nz) |
 | Schedule engine | Chao Yao (cyao907@aucklanduni.ac.nz) |
-| AI task parser | Marvin Xu (zxu734@aucklanduni.ac.nz) |
-| Free-time suggestions | Marvin Xu (zxu734@aucklanduni.ac.nz)|
-| Timetable and dashboard | Marvin Xu (zxu734@aucklanduni.ac.nz) Chao Yao (cyao907@aucklanduni.ac.nz) Sreelakshmi Gireesh (sgir748@aucklanduni.ac.nz) Khushba Ahmed (kahm047@aucklanduni.ac.nz) |
-| Productivity Ocean | Shardul Mangesh Anagal (sana691@aucklanduni.ac.nz) |
+| Timetable/Free-time suggestions | Marvin Xu (zxu734@aucklanduni.ac.nz)|
+| Dashboard | Marvin Xu (zxu734@aucklanduni.ac.nz) Chao Yao (cyao907@aucklanduni.ac.nz) Sreelakshmi Gireesh (sgir748@aucklanduni.ac.nz) Khushba Ahmed (kahm047@aucklanduni.ac.nz) |
+| Productivity Ocean | Shardul Mangesh Anagal (sana691@aucklanduni.ac.nz) Sreelakshmi Gireesh (sgir748@aucklanduni.ac.nz) |
 | Frontend Architecture design | Shardul Mangesh Anagal (sana691@aucklanduni.ac.nz) |
 | UI design | Shardul Mangesh Anagal (sana691@aucklanduni.ac.nz) |
 | Testing | Harsh Kumar (hkmu884@aucklanduni.ac.nz) |
