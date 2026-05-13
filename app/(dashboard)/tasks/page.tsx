@@ -433,59 +433,99 @@ export default function TasksPage() {
           )}
 
         {nlPreview.length > 0 && (
-          <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.04] p-4">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                {nlPreview.length} task{nlPreview.length > 1 ? "s" : ""} found — review before saving
-              </p>
+        <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.04] p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+            {nlPreview.length} task{nlPreview.length > 1 ? "s" : ""} found — edit then save
+          </p>
 
-            <div className="mb-4 space-y-2">
-                {nlPreview.map((task: {
-                  title: string;
-                  description?: string;
-                  priority: string;
-                  estimatedMinutes: number;
-                  deadline?: string;
-                  scheduledDate?: string;
-                  scheduledStartTime?: string;
-                }, i) => (
-                <div key={`${task.title}-${i}`} className="rounded-md border border-white/10 bg-slate-950/45 p-3">
-                  <p className="mb-2 text-sm font-semibold text-white">{task.title}</p>
-                    <div className="mb-2 flex flex-wrap gap-2">
-                    <Badge tone={priorityTones[task.priority] ?? "slate"}>{task.priority}</Badge>
-                    <Badge>{task.estimatedMinutes} min</Badge>
-                      {task.deadline && (
-                      <Badge tone="blue">Due {task.deadline}</Badge>
-                      )}
-                      {task.scheduledDate && task.scheduledStartTime && (
-                      <Badge tone="emerald">
-                          {task.scheduledDate} {task.scheduledStartTime}
-                      </Badge>
-                      )}
-                    </div>
-                    {task.description && (
-                    <p className="text-xs leading-5 text-slate-400">{task.description}</p>
-                    )}
+          <div className="mb-4 space-y-3">
+            {nlPreview.map((task, i) => (
+              <div key={`${task.title}-${i}`} className="rounded-md border border-white/10 bg-slate-950/45 p-3 space-y-2">
+                <div>
+                  <FieldLabel>Title</FieldLabel>
+                  <TextInput
+                    type="text"
+                    value={task.title}
+                    onChange={(e) => {
+                      const updated = [...nlPreview];
+                      updated[i] = { ...updated[i], title: e.target.value };
+                      setNlPreview(updated);
+                    }}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div>
+                    <FieldLabel>Priority</FieldLabel>
+                    <Select
+                      value={task.priority}
+                      onChange={(e) => {
+                        const updated = [...nlPreview];
+                        updated[i] = { ...updated[i], priority: e.target.value };
+                        setNlPreview(updated);
+                      }}
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                    </Select>
                   </div>
-                ))}
+                  <div>
+                    <FieldLabel>Minutes</FieldLabel>
+                    <TextInput
+                      type="number"
+                      value={task.estimatedMinutes}
+                      min="1"
+                      max="480"
+                      onChange={(e) => {
+                        const updated = [...nlPreview];
+                        updated[i] = { ...updated[i], estimatedMinutes: parseInt(e.target.value) || 60 };
+                        setNlPreview(updated);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Deadline</FieldLabel>
+                    <TextInput
+                      type="date"
+                      value={task.deadline || ""}
+                      onChange={(e) => {
+                        const updated = [...nlPreview];
+                        updated[i] = { ...updated[i], deadline: e.target.value || undefined };
+                        setNlPreview(updated);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Start time</FieldLabel>
+                    <TextInput
+                      type="time"
+                      value={task.scheduledStartTime || ""}
+                      onChange={(e) => {
+                        const updated = [...nlPreview];
+                        updated[i] = { ...updated[i], scheduledStartTime: e.target.value || undefined };
+                        setNlPreview(updated);
+                      }}
+                    />
+                  </div>
+                </div>
+                {task.scheduledDate && task.scheduledStartTime && (
+                  <p className="text-xs text-blue-200">Pinned to {task.scheduledDate} at {task.scheduledStartTime}</p>
+                )}
               </div>
+            ))}
+          </div>
 
-              <div className="flex gap-2">
-              <Button
-                  onClick={handleNlSave}
-                  disabled={nlSaving}
-                >
-                {nlSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {nlSaving ? "Saving..." : `Save ${nlPreview.length} task${nlPreview.length > 1 ? "s" : ""}`}
-              </Button>
-              <Button
-                  onClick={() => { setNlPreview([]); setNlInput(""); }}
-                variant="secondary"
-                >
-                  Discard
-              </Button>
-              </div>
-            </div>
-          )}
+          <div className="flex gap-2">
+            <Button onClick={handleNlSave} disabled={nlSaving}>
+              {nlSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+              {nlSaving ? "Saving..." : `Save ${nlPreview.length} task${nlPreview.length > 1 ? "s" : ""}`}
+            </Button>
+            <Button onClick={() => { setNlPreview([]); setNlInput(""); }} variant="secondary">
+              Discard
+            </Button>
+          </div>
+        </div>
+      )}
       </Panel>
 
       {isFormOpen && (

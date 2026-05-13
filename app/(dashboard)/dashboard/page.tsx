@@ -20,6 +20,11 @@ type ScheduleStatsResponse = {
   data?: unknown[];
 };
 
+type GoalsStatsResponse = {
+  success?: boolean;
+  data?: { status: string }[];
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -34,17 +39,26 @@ export default function DashboardPage() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const [tasksRes, scheduleRes] = await Promise.all([
+      const [tasksRes, scheduleRes, goalsRes] = await Promise.all([
         fetch("/api/tasks"),
         fetch(`/api/schedules?date=${new Date().toISOString().slice(0, 10)}`),
+        fetch("/api/goals"),
       ]);
       const tasksData = (await tasksRes.json()) as TasksStatsResponse;
       const scheduleData = (await scheduleRes.json()) as ScheduleStatsResponse;
+      const goalsData = (await goalsRes.json()) as GoalsStatsResponse;
+
       if (tasksData.success) {
         setStats((prev) => ({ ...prev, totalTasks: tasksData.data?.length ?? 0 }));
       }
       if (scheduleData.success) {
         setStats((prev) => ({ ...prev, scheduleToday: scheduleData.data?.length ?? 0 }));
+      }
+      if (goalsData.success) {
+        setStats((prev) => ({
+          ...prev,
+          activeGoals: goalsData.data?.filter((g) => g.status === "active").length ?? 0,
+        }));
       }
     } catch {
       console.error("Failed to fetch stats");

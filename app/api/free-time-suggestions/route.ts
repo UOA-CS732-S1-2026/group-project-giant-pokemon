@@ -5,6 +5,47 @@ import { Goal } from "@/models/Goal";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/jwt";
 
+const rateLimitMap = new Map<string, { 
+  minuteCount: number; 
+  minuteResetAt: number;
+  dayCount: number;
+  dayResetAt: number;
+}>();
+
+const MINUTE_LIMIT = 10;
+const DAY_LIMIT = 50;
+const MINUTE_MS = 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function checkRateLimit(userId: string): { allowed: boolean; reason?: string } {
+  const now = Date.now();
+  const entry = rateLimitMap.get(userId) ?? {
+    minuteCount: 0, minuteResetAt: now + MINUTE_MS,
+    dayCount: 0, dayResetAt: now + DAY_MS,
+  };
+
+  if (now > entry.minuteResetAt) {
+    entry.minuteCount = 0;
+    entry.minuteResetAt = now + MINUTE_MS;
+  }
+  if (now > entry.dayResetAt) {
+    entry.dayCount = 0;
+    entry.dayResetAt = now + DAY_MS;
+  }
+
+  if (entry.minuteCount >= MINUTE_LIMIT) {
+    return { allowed: false, reason: "Too many requests. Please wait a moment." };
+  }
+  if (entry.dayCount >= DAY_LIMIT) {
+    return { allowed: false, reason: "Daily limit reached. Try again tomorrow." };
+  }
+
+  entry.minuteCount += 1;
+  entry.dayCount += 1;
+  rateLimitMap.set(userId, entry);
+  return { allowed: true };
+}
+
 // Helper to convert "09:00 AM" to "09:00"
 function convertTo24Hour(time12h: string): string {
   if (!time12h) return "09:00";
@@ -116,6 +157,11 @@ export async function GET(request: Request) {
     const userId = await getCurrentUserId();
     if (!userId) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    
+    const { allowed, reason } = checkRateLimit(userId);
+    if (!allowed) {
+      return NextResponse.json({ success: false, error: reason }, { status: 429 });
     }
 
     const { searchParams } = new URL(request.url);
