@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import User from "@/models/User";
 import { dbConnect } from "@/lib/mongodb";
 import { signToken } from "@/lib/jwt";
+import { shouldUseSecureCookie } from "@/lib/authCookie";
 
 export async function POST(req: Request) {
   await dbConnect();
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
 
   res.cookies.set("token", token, {
     httpOnly: true,
-    secure: true,
+    secure: shouldUseSecureCookie(req),
     path: "/",
     maxAge: 60 * 60 * 24 * 7
   });

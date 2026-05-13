@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { dbConnect } from "@/lib/mongodb";
 import User from "@/models/User";
 import { signToken } from "@/lib/jwt";
+import { shouldUseSecureCookie } from "@/lib/authCookie";
 import { validatePassword } from "@/lib/validatePassword";
 
 export async function POST(req: Request) {
@@ -30,10 +31,14 @@ export async function POST(req: Request) {
 
     const user = await User.create({ name, email, passwordHash });
 
-    const token = signToken({ userId: user._id });
+    const token = signToken({ id: user._id });
 
     const res = NextResponse.json({ message: "Success" }, { status: 200 });
-    res.cookies.set("token", token, { httpOnly: true, secure: true, path: "/" });
+    res.cookies.set("token", token, {
+      httpOnly: true,
+      secure: shouldUseSecureCookie(req),
+      path: "/",
+    });
 
     return res;
   } catch (err) {
