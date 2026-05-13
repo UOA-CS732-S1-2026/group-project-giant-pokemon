@@ -63,7 +63,7 @@ describe("sortTasksForRuleEngine", () => {
 });
 
 describe("generateRuleSchedule", () => {
-    it("generates deterministic blocks and empty scheduled reasoning", () => {
+    it("generates deterministic blocks and rule summary", () => {
         const result = generateRuleSchedule({
             date: "2026-05-05",
             tasks: [
@@ -107,8 +107,8 @@ describe("generateRuleSchedule", () => {
         expect(result.meta).toEqual({
             requestedMode: "rule",
             usedMode: "rule",
-            scheduledReasoning: [],
-            overflow: [],
+            scheduleSummary: "Rule engine scheduled tasks by priority, deadline, and available time.",
+            instructionDeviations: [],
             unscheduled: [],
         });
     });
@@ -169,7 +169,7 @@ describe("generateRuleSchedule", () => {
         });
     });
 
-    it("places must-complete tasks into overflow after the normal window is full", () => {
+    it("marks must-complete tasks unscheduled when the normal window is full", () => {
         const result = generateRuleSchedule({
             date: "2026-05-05",
             occupiedBlocks: [
@@ -191,16 +191,11 @@ describe("generateRuleSchedule", () => {
             ],
         });
 
-        expect(result.blocks[0]).toMatchObject({
-            taskId: "due-today",
-            startTime: "17:00",
-            endTime: "19:00",
-        });
-        expect(result.meta.overflow).toEqual([
+        expect(result.blocks).toEqual([]);
+        expect(result.meta.unscheduled).toEqual([
             {
                 taskId: "due-today",
                 title: "Due today",
-                reason: "Task is due on or before the schedule date, so it was placed after 17:00.",
             },
         ]);
     });
@@ -232,12 +227,11 @@ describe("generateRuleSchedule", () => {
             {
                 taskId: "later-task",
                 title: "Later task",
-                reason: "Task could not fit before 17:00 and is not due on or before the schedule date.",
             },
         ]);
     });
 
-    it("marks must-complete tasks unscheduled when they exceed the overflow cap", () => {
+    it("marks must-complete tasks unscheduled when they cannot fit normally", () => {
         const result = generateRuleSchedule({
             date: "2026-05-05",
             occupiedBlocks: [
@@ -264,7 +258,6 @@ describe("generateRuleSchedule", () => {
             {
                 taskId: "too-long",
                 title: "Too long",
-                reason: "Task must be completed today, but it cannot fit before the 22:00 overflow cap.",
             },
         ]);
     });
@@ -275,7 +268,6 @@ describe("generateRuleSchedule", () => {
             window: {
                 normalStartTime: "08:30",
                 normalEndTime: "10:00",
-                overflowEndTime: "12:00",
             },
             tasks: [
                 {
@@ -305,10 +297,8 @@ describe("resolveScheduleWindow", () => {
         expect(() =>
             resolveScheduleWindow({
                 normalStartTime: "09:00",
-                normalEndTime: "22:00",
-                overflowEndTime: "17:00",
+                normalEndTime: "09:00",
             })
-        ).toThrow("Schedule window must satisfy normalStart < normalEnd < overflowEnd.");
+        ).toThrow("Schedule window must satisfy normalStart < normalEnd.");
     });
 });
-

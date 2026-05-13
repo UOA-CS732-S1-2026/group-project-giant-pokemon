@@ -19,7 +19,6 @@ export type SchedulableTask = {
 export type ScheduleWindowConfig = {
     normalStartTime: string;
     normalEndTime: string;
-    overflowEndTime: string;
 };
 
 export type EngineOccupiedBlock = {
@@ -40,16 +39,9 @@ export type EngineGeneratedBlock = {
     status: "scheduled";
 };
 
-export type ScheduleMetaItem = {
+export type ScheduleTaskItem = {
     taskId: string;
     title: string;
-    reason: string;
-};
-
-export type ScheduleReasoningItem = {
-    taskId: string;
-    title: string;
-    reasoning: string;
 };
 
 export type ScheduleGenerationFallbackCode =
@@ -66,9 +58,9 @@ export type ScheduleGenerationMeta = {
         code: ScheduleGenerationFallbackCode;
         message: string;
     };
-    scheduledReasoning: ScheduleReasoningItem[];
-    overflow: ScheduleMetaItem[];
-    unscheduled: ScheduleMetaItem[];
+    scheduleSummary: string;
+    instructionDeviations: string[];
+    unscheduled: ScheduleTaskItem[];
 };
 
 export type ScheduleEngineResult = {

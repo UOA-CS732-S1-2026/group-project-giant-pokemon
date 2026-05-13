@@ -12,17 +12,14 @@ import type {
     EngineOccupiedBlock,
     ScheduleEngineResult,
     ScheduleGenerationMeta,
-    ScheduleMetaItem,
+    ScheduleTaskItem,
     ScheduleWindowConfig,
     SchedulableTask,
 } from "@/lib/scheduleEngine/types";
 
-export const DEFAULT_OVERFLOW_END_TIME = "22:00";
-
 export const defaultScheduleWindow: ScheduleWindowConfig = {
     normalStartTime: DEFAULT_START_TIME,
     normalEndTime: DEFAULT_END_TIME,
-    overflowEndTime: DEFAULT_OVERFLOW_END_TIME,
 };
 
 type RuleEngineInput = {
@@ -54,14 +51,10 @@ export function generateRuleSchedule({
     const resolvedWindow = resolveScheduleWindow(window);
     const normalStart = timeToMinutes(resolvedWindow.normalStartTime);
     const normalEnd = timeToMinutes(resolvedWindow.normalEndTime);
-    const overflowEnd = timeToMinutes(resolvedWindow.overflowEndTime);
     const occupiedRanges = toOccupiedRanges(occupiedBlocks);
     const blocks: EngineGeneratedBlock[] = [];
-    const overflow: ScheduleMetaItem[] = [];
-    const unscheduled: ScheduleMetaItem[] = [];
-    const overflowQueue: SchedulableTask[] = [];
+    const unscheduled: ScheduleTaskItem[] = [];
     let normalCursor = normalStart;
-    let overflowCursor = normalEnd;
 
     for (const task of sortTasksForRuleEngine(tasks)) {
         const normalStartTime = findNextAvailableStart({
@@ -78,42 +71,9 @@ export function generateRuleSchedule({
             continue;
         }
 
-        if (isMustCompleteToday(task, date)) {
-            overflowQueue.push(task);
-            continue;
-        }
-
         unscheduled.push({
             taskId: task.id,
             title: task.title,
-            reason: "Task could not fit before 17:00 and is not due on or before the schedule date.",
-        });
-    }
-
-    for (const task of overflowQueue) {
-        const overflowStartTime = findNextAvailableStart({
-            cursor: overflowCursor,
-            duration: task.estimatedMinutes,
-            windowStart: normalEnd,
-            windowEnd: overflowEnd,
-            occupiedRanges,
-        });
-
-        if (overflowStartTime !== null) {
-            blocks.push(createGeneratedBlock({ userId, date, task, start: overflowStartTime }));
-            overflowCursor = overflowStartTime + task.estimatedMinutes;
-            overflow.push({
-                taskId: task.id,
-                title: task.title,
-                reason: "Task is due on or before the schedule date, so it was placed after 17:00.",
-            });
-            continue;
-        }
-
-        unscheduled.push({
-            taskId: task.id,
-            title: task.title,
-            reason: "Task must be completed today, but it cannot fit before the 22:00 overflow cap.",
         });
     }
 
@@ -121,7 +81,7 @@ export function generateRuleSchedule({
 
     return {
         blocks,
-        meta: createRuleMeta({ overflow, unscheduled }),
+        meta: createRuleMeta({ unscheduled }),
     };
 }
 
@@ -158,34 +118,28 @@ export function resolveScheduleWindow(
 
     if (
         !isTimeString(resolvedWindow.normalStartTime) ||
-        !isTimeString(resolvedWindow.normalEndTime) ||
-        !isTimeString(resolvedWindow.overflowEndTime)
+        !isTimeString(resolvedWindow.normalEndTime)
     ) {
         throw new Error("Schedule window times must use HH:mm format.");
     }
 
-    if (
-        !hasValidTimeRange(resolvedWindow.normalStartTime, resolvedWindow.normalEndTime) ||
-        !hasValidTimeRange(resolvedWindow.normalEndTime, resolvedWindow.overflowEndTime)
-    ) {
-        throw new Error("Schedule window must satisfy normalStart < normalEnd < overflowEnd.");
+    if (!hasValidTimeRange(resolvedWindow.normalStartTime, resolvedWindow.normalEndTime)) {
+        throw new Error("Schedule window must satisfy normalStart < normalEnd.");
     }
 
     return resolvedWindow;
 }
 
 function createRuleMeta({
-    overflow,
     unscheduled,
 }: {
-    overflow: ScheduleMetaItem[];
-    unscheduled: ScheduleMetaItem[];
+    unscheduled: ScheduleTaskItem[];
 }): ScheduleGenerationMeta {
     return {
         requestedMode: "rule",
         usedMode: "rule",
-        scheduledReasoning: [],
-        overflow,
+        scheduleSummary: "Rule engine scheduled tasks by priority, deadline, and available time.",
+        instructionDeviations: [],
         unscheduled,
     };
 }
@@ -216,10 +170,6 @@ function deadlineRank(task: SchedulableTask) {
     return task.deadline
         ? new Date(`${task.deadline}T00:00:00.000Z`).getTime()
         : Number.POSITIVE_INFINITY;
-}
-
-function isMustCompleteToday(task: SchedulableTask, date: string) {
-    return Boolean(task.deadline && task.deadline <= date);
 }
 
 function toOccupiedRanges(blocks: EngineOccupiedBlock[]) {
@@ -267,4 +217,3 @@ function findNextAvailableStart({
 
     return nextStart + duration <= windowEnd ? nextStart : null;
 }
-

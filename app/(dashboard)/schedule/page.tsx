@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { CalendarDays, Loader2 } from "lucide-react";
+import { Alert, Badge, Button, FieldLabel, PageHeader, Panel, Select, TextArea, TextInput } from "@/components/ui/foundation";
 
 import type {
     ScheduleGenerationMode,
@@ -398,234 +400,237 @@ export default function SchedulePage() {
         }
     }
 
-    const priorityColor = (p: string) => {
-        if (p === "high") return { background: "#fef2f2", color: "#b91c1c" };
-        if (p === "medium") return { background: "#fffbeb", color: "#92400e" };
-        return { background: "#f0fdf4", color: "#15803d" };
+    const priorityTone = (p: string): "rose" | "amber" | "emerald" => {
+        if (p === "high") return "rose";
+        if (p === "medium") return "amber";
+        return "emerald";
     };
 
-    const blockStatusStyle = (s: string) => {
-        if (s === "completed") return { bg: "#f0fdf4", color: "#15803d", dot: "#22c55e" };
-        if (s === "missed") return { bg: "#fef2f2", color: "#b91c1c", dot: "#ef4444" };
-        return { bg: "#f8fafc", color: "#475569", dot: "#94a3b8" };
+    const blockStatusTone = (s: string): "emerald" | "rose" | "slate" => {
+        if (s === "completed") return "emerald";
+        if (s === "missed") return "rose";
+        return "slate";
     };
 
     return (
-        <div style={{ minHeight: "100vh", background: "#f9fafb" }}>
-            
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-
-            <main style={{ maxWidth: 760, margin: "0 auto", padding: "32px 16px" }}>
-
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 32 }}>
-                    <div>
-                        <h1 style={{ fontSize: 22, fontWeight: 600, color: "#111827", letterSpacing: "-0.01em", marginBottom: 2 }}>Schedule</h1>
-                        <p style={{ fontSize: 13, color: "#9ca3af" }}>Generate and manage your daily schedule</p>
-                    </div>
-                    <Link href="/timetable" style={{ fontSize: 13, fontWeight: 500, color: "#fff", background: "#111827", borderRadius: 10, padding: "8px 16px", textDecoration: "none" }}>
+        <>
+            <PageHeader
+                label="Schedule"
+                title="Daily Schedule"
+                description="Generate and manage your daily schedule with rule or AI planning."
+                actions={
+                    <Link href="/timetable" className="inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-blue-200/50 hover:bg-blue-400/10">
+                        <CalendarDays className="h-4 w-4" />
                         View Timetable
                     </Link>
-                </div>
+                }
+            />
 
-                {error && (
-                    <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "12px 16px", marginBottom: 16 }}>
-                        <p style={{ fontSize: 13, color: "#b91c1c", margin: 0 }}>{error}</p>
-                    </div>
-                )}
+            {error && <Alert>{error}</Alert>}
 
-                <div style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: 16, padding: "20px", marginBottom: 16 }}>
-                    <p style={{ fontSize: 15, fontWeight: 600, color: "#111827", marginBottom: 16 }}>Engine Controls</p>
-                    <div style={{ marginBottom: 16 }}>
-                        <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>Engine Mode</p>
-                        <div style={{ display: "inline-flex", border: "1px solid #e5e7eb", borderRadius: 10, padding: 3, background: "#f9fafb" }}>
-                            {(["rule", "ai"] as const).map((m) => (
-                                <button key={m} onClick={() => setMode(m)} style={{ fontSize: 13, fontWeight: 500, padding: "6px 16px", borderRadius: 8, border: "none", cursor: "pointer", background: mode === m ? "#111827" : "transparent", color: mode === m ? "#fff" : "#6b7280" }}>
-                                    {m === "ai" ? "AI" : "Rule"}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    <div style={{ marginBottom: 16 }}>
-                        <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>Schedule Date</p>
-                        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ fontSize: 13, border: "1px solid #e5e7eb", borderRadius: 10, padding: "8px 12px", color: "#111827", background: "#fff", outline: "none" }} />
-                    </div>
-                    <div style={{ marginBottom: 20 }}>
-                        <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>AI Instruction <span style={{ color: "#d1d5db" }}>(optional)</span></p>
-                        <textarea value={instruction} onChange={(e) => setInstruction(e.target.value)} placeholder="e.g. Move easy low-priority tasks earlier as warm-up work." style={{ width: "100%", fontSize: 13, border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 12px", color: "#111827", background: "#fff", outline: "none", minHeight: 80, resize: "vertical", boxSizing: "border-box" }} />
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                        <button onClick={handleGenerate} disabled={generating || tasks.length === 0} style={{ fontSize: 13, fontWeight: 500, padding: "9px 18px", borderRadius: 10, border: "none", cursor: generating || tasks.length === 0 ? "not-allowed" : "pointer", background: "#111827", color: "#fff", opacity: generating || tasks.length === 0 ? 0.5 : 1 }}>
-                            {generating ? "Generating..." : "Generate Daily Schedule"}
-                        </button>
-                        <button onClick={handleRegenerate} disabled={regenerating || tasks.length === 0} style={{ fontSize: 13, fontWeight: 500, padding: "9px 18px", borderRadius: 10, border: "1px solid #e5e7eb", cursor: regenerating || tasks.length === 0 ? "not-allowed" : "pointer", background: "#fff", color: "#374151", opacity: regenerating || tasks.length === 0 ? 0.5 : 1 }}>
-                            {regenerating ? "Regenerating..." : "Regenerate (keep completed)"}
-                        </button>
-                        <button onClick={handleClearAll} disabled={clearing} style={{ fontSize: 13, fontWeight: 500, padding: "9px 18px", borderRadius: 10, border: "1px solid #fecaca", cursor: clearing ? "not-allowed" : "pointer", background: "#fff", color: "#ef4444", opacity: clearing ? 0.5 : 1 }}>
-                            {clearing ? "Clearing..." : "Clear All"}
-                        </button>
-                    </div>
-                </div>
-
-                <div style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: 16, padding: "20px", marginBottom: 16 }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                        <p style={{ fontSize: 15, fontWeight: 600, color: "#111827" }}>
-                            Active Tasks <span style={{ fontSize: 13, fontWeight: 400, color: "#9ca3af" }}>({tasks.length})</span>
-                        </p>
-                        <button onClick={fetchTasks} style={{ fontSize: 12, color: "#6b7280", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
-                            {loadingTasks ? "Refreshing..." : "Refresh"}
-                        </button>
-                    </div>
-                    {tasks.length === 0 ? (
-                        <div style={{ textAlign: "center", padding: "24px 0" }}>
-                            <p style={{ fontSize: 13, color: "#9ca3af", marginBottom: 8 }}>No active tasks found.</p>
-                            <Link href="/tasks" style={{ fontSize: 13, color: "#111827", fontWeight: 500, textDecoration: "underline" }}>Go to Tasks to create some</Link>
-                        </div>
-                    ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                            {tasks.map((task) => (
-                                <div key={task.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: "1px solid #f3f4f6", borderRadius: 10 }}>
-                                    <span style={{ fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 999, ...priorityColor(task.priority) }}>{task.priority}</span>
-                                    <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "#111827" }}>{task.title}</span>
-                                    <span style={{ fontSize: 12, color: "#9ca3af" }}>{task.estimatedMinutes} min</span>
-                                    {task.deadline && <span style={{ fontSize: 11, color: "#9ca3af" }}>due {task.deadline.slice(0, 10)}</span>}
-                                    {task.scheduledDate && task.scheduledStartTime && (
-                                        <span style={{ fontSize: 11, color: "#2563eb", background: "#eff6ff", padding: "2px 8px", borderRadius: 999 }}>
-                                            {task.scheduledDate} {task.scheduledStartTime}
-                                        </span>
-                                    )}
+            <div className="flex flex-col items-stretch gap-5 xl:flex-row xl:items-start">
+                <div className="grid min-w-0 gap-5 overflow-hidden xl:w-[300px] xl:flex-none 2xl:w-[320px]">
+                    <Panel className="overflow-hidden">
+                        <h2 className="text-lg font-semibold text-white">Engine Controls</h2>
+                        <div className="mt-5 grid gap-4">
+                            <div>
+                                <FieldLabel>Engine Mode</FieldLabel>
+                                <div className="inline-flex rounded-md border border-white/10 bg-slate-900/70 p-1">
+                                    {(["rule", "ai"] as const).map((m) => (
+                                        <button
+                                            key={m}
+                                            onClick={() => setMode(m)}
+                                            className={`rounded-sm px-4 py-2 text-sm font-semibold transition ${mode === m ? "bg-blue-500/25 text-white" : "text-slate-400 hover:text-white"}`}
+                                        >
+                                            {m === "ai" ? "AI" : "Rule"}
+                                        </button>
+                                    ))}
                                 </div>
-                            ))}
+                            </div>
+                            <div>
+                                <FieldLabel>Schedule Date</FieldLabel>
+                                <TextInput type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                            </div>
+                            <div>
+                                <FieldLabel>AI Instruction optional</FieldLabel>
+                                <TextArea value={instruction} onChange={(e) => setInstruction(e.target.value)} placeholder="e.g. Move easy low-priority tasks earlier as warm-up work." rows={4} />
+                            </div>
                         </div>
-                    )}
-                </div>
+                        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                            <Button onClick={handleGenerate} disabled={generating || tasks.length === 0} className="w-full">
+                                {generating && <Loader2 className="h-4 w-4 animate-spin" />}
+                                {generating ? "Generating..." : "Generate Daily Schedule"}
+                            </Button>
+                            <Button onClick={handleRegenerate} disabled={regenerating || tasks.length === 0} variant="secondary" className="w-full">
+                                {regenerating && <Loader2 className="h-4 w-4 animate-spin" />}
+                                {regenerating ? "Regenerating..." : "Regenerate"}
+                            </Button>
+                            <Button onClick={handleClearAll} disabled={clearing} variant="danger" className="w-full sm:col-span-2 xl:col-span-1">
+                                {clearing ? "Clearing..." : "Clear All"}
+                            </Button>
+                        </div>
+                    </Panel>
 
-                {engineMeta && (
-                    <div style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: 16, padding: "20px", marginBottom: 16 }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                            <p style={{ fontSize: 15, fontWeight: 600, color: "#111827" }}>Engine Result</p>
-                            <span style={{ fontSize: 12, color: "#9ca3af" }}>Requested: {engineMeta.requestedMode} · Used: {engineMeta.usedMode}</span>
-                        </div>
-                        {engineMeta.fallback && (
-                            <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13, color: "#92400e" }}>
-                                {engineMeta.fallback.code}: {engineMeta.fallback.message}
+                    <Panel>
+                        <h2 className="text-lg font-semibold text-white">Add Fixed Block</h2>
+                        <p className="mt-1 text-sm text-slate-400">Fixed blocks, like lunch or meetings, are treated as occupied by the engine.</p>
+                        <form onSubmit={handleSubmit} className="mt-5">
+                            <TextInput value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Lunch break, Team meeting" />
+                            <div className="mt-4 grid grid-cols-1 gap-3">
+                                <div>
+                                    <FieldLabel>Start Time</FieldLabel>
+                                    <TextInput type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                                </div>
+                                <div>
+                                    <FieldLabel>End Time</FieldLabel>
+                                    <TextInput type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                                </div>
+                                <div>
+                                    <FieldLabel>Status</FieldLabel>
+                                    <Select value={status} onChange={(e) => setStatus(e.target.value as ScheduleBlockStatus)}>
+                                        <option value="scheduled">Scheduled</option>
+                                        <option value="completed">Completed</option>
+                                        <option value="missed">Missed</option>
+                                    </Select>
+                                </div>
                             </div>
-                        )}
-                        {engineMeta.scheduledReasoning.length > 0 && (
-                            <div style={{ marginBottom: 12 }}>
-                                <p style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", letterSpacing: "0.05em", marginBottom: 6 }}>REASONING</p>
-                                {engineMeta.scheduledReasoning.map((item) => (
-                                    <div key={item.taskId} style={{ fontSize: 13, color: "#374151", padding: "5px 0", borderBottom: "1px solid #f9fafb" }}>
-                                        <span style={{ fontWeight: 500 }}>{item.title}:</span> {item.reasoning}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        {engineMeta.overflow.length > 0 && (
-                            <div style={{ marginBottom: 12 }}>
-                                <p style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", letterSpacing: "0.05em", marginBottom: 6 }}>OVERFLOW</p>
-                                {engineMeta.overflow.map((item) => (
-                                    <div key={item.taskId} style={{ fontSize: 13, color: "#374151", padding: "5px 0" }}>
-                                        <span style={{ fontWeight: 500 }}>{item.title}:</span> {item.reason}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        {engineMeta.unscheduled.length > 0 && (
-                            <div>
-                                <p style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", letterSpacing: "0.05em", marginBottom: 6 }}>UNSCHEDULED</p>
-                                {engineMeta.unscheduled.map((item) => (
-                                    <div key={item.taskId} style={{ fontSize: 13, color: "#374151", padding: "5px 0" }}>
-                                        <span style={{ fontWeight: 500 }}>{item.title}:</span> {item.reason}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        {engineMeta.overflow.length === 0 && engineMeta.unscheduled.length === 0 && (
-                            <p style={{ fontSize: 13, color: "#9ca3af" }}>All tasks fit within the normal schedule window.</p>
-                        )}
-                    </div>
-                )}
+                            <Button type="submit" disabled={submitting} className="mt-4 w-full">
+                                {submitting ? "Adding..." : "Add Fixed Block"}
+                            </Button>
+                        </form>
+                    </Panel>
 
-                <div style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: 16, padding: "20px", marginBottom: 16 }}>
-                    <p style={{ fontSize: 15, fontWeight: 600, color: "#111827", marginBottom: 4 }}>Add Fixed Block</p>
-                    <p style={{ fontSize: 13, color: "#9ca3af", marginBottom: 16 }}>Fixed blocks (e.g. lunch, meetings) are treated as occupied by the engine.</p>
-                    <form onSubmit={handleSubmit}>
-                        <div style={{ marginBottom: 12 }}>
-                            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Lunch break, Team meeting" style={{ width: "100%", fontSize: 13, border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 12px", color: "#111827", background: "#fff", outline: "none", boxSizing: "border-box" }} />
+                    <Panel>
+                        <div className="mb-4 flex items-center justify-between gap-4">
+                            <h2 className="text-lg font-semibold text-white">Active Tasks <span className="text-sm font-normal text-slate-400">({tasks.length})</span></h2>
+                            <button onClick={fetchTasks} className="text-sm font-semibold text-blue-200 hover:text-white">
+                                {loadingTasks ? "Refreshing..." : "Refresh"}
+                            </button>
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
-                            <div>
-                                <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>Start Time</p>
-                                <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} style={{ width: "100%", fontSize: 13, border: "1px solid #e5e7eb", borderRadius: 10, padding: "8px 10px", color: "#111827", background: "#fff", outline: "none", boxSizing: "border-box" }} />
+                        {tasks.length === 0 ? (
+                            <div className="py-8 text-center">
+                                <p className="mb-2 text-sm text-slate-400">No active tasks found.</p>
+                                <Link href="/tasks" className="text-sm font-semibold text-blue-200 hover:text-white">Go to Tasks to create some</Link>
                             </div>
-                            <div>
-                                <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>End Time</p>
-                                <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} style={{ width: "100%", fontSize: 13, border: "1px solid #e5e7eb", borderRadius: 10, padding: "8px 10px", color: "#111827", background: "#fff", outline: "none", boxSizing: "border-box" }} />
-                            </div>
-                            <div>
-                                <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>Status</p>
-                                <select value={status} onChange={(e) => setStatus(e.target.value as ScheduleBlockStatus)} style={{ width: "100%", fontSize: 13, border: "1px solid #e5e7eb", borderRadius: 10, padding: "8px 10px", color: "#111827", background: "#fff", outline: "none", boxSizing: "border-box" }}>
-                                    <option value="scheduled">Scheduled</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="missed">Missed</option>
-                                </select>
-                            </div>
-                        </div>
-                        <button type="submit" disabled={submitting} style={{ fontSize: 13, fontWeight: 500, padding: "9px 18px", borderRadius: 10, border: "none", cursor: submitting ? "not-allowed" : "pointer", background: "#111827", color: "#fff", opacity: submitting ? 0.5 : 1 }}>
-                            {submitting ? "Adding..." : "Add Fixed Block"}
-                        </button>
-                    </form>
-                </div>
-
-                <div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                        <p style={{ fontSize: 15, fontWeight: 600, color: "#111827" }}>Daily Schedule</p>
-                        {loadingBlocks && <div style={{ width: 16, height: 16, border: "2px solid #e5e7eb", borderTopColor: "#6b7280", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />}
-                    </div>
-                    {blocks.length === 0 && !loadingBlocks ? (
-                        <div style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: 16, padding: "48px 24px", textAlign: "center" }}>
-                            <p style={{ fontSize: 14, color: "#9ca3af" }}>No blocks yet. Generate a schedule or add a fixed block.</p>
-                        </div>
-                    ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                            {blocks.map((block) => {
-                                const s = blockStatusStyle(block.status);
-                                return (
-                                    <div key={block._id} style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: 16, padding: "14px 16px" }}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-                                            <div style={{ width: 3, height: 36, borderRadius: 99, background: s.dot, flexShrink: 0 }} />
-                                            <div style={{ minWidth: 80, flexShrink: 0 }}>
-                                                <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", fontFamily: "monospace" }}>{block.startTime}</div>
-                                                <div style={{ fontSize: 12, color: "#9ca3af", fontFamily: "monospace" }}>{block.endTime}</div>
-                                            </div>
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <p style={{ fontSize: 14, fontWeight: 500, color: "#111827", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: block.status === "completed" ? "line-through" : "none" }}>
-                                                    {block.title}
-                                                </p>
-                                                {block.taskId && <p style={{ fontSize: 11, color: "#9ca3af", margin: "2px 0 0" }}>Task: {block.taskId}</p>}
-                                            </div>
-                                            <div style={{ background: s.bg, color: s.color, fontSize: 11, fontWeight: 500, padding: "3px 10px", borderRadius: 999, flexShrink: 0, textTransform: "capitalize" }}>
-                                                {block.status}
-                                            </div>
+                        ) : (
+                            <div className="grid gap-2">
+                                {tasks.map((task) => (
+                                    <div key={task.id} className="grid min-w-0 gap-2 overflow-hidden rounded-md border border-white/10 bg-white/[0.04] px-3 py-3">
+                                        <div className="flex min-w-0 items-center gap-2">
+                                            <Badge tone={priorityTone(task.priority)}>{task.priority}</Badge>
+                                            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">{task.title}</span>
                                         </div>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: 15 }}>
-                                            <span style={{ fontSize: 11, color: "#9ca3af", marginRight: 6 }}>Mark as:</span>
-                                            {(["scheduled", "completed", "missed"] as const).map((s) => (
-                                                <button key={s} onClick={() => handleStatusChange(block._id, s)} disabled={actionId === block._id} style={{ fontSize: 11, fontWeight: block.status === s ? 600 : 400, padding: "4px 10px", borderRadius: 999, border: `1px solid ${block.status === s ? "#d1d5db" : "#f3f4f6"}`, background: block.status === s ? "#f3f4f6" : "#fff", color: block.status === s ? "#111827" : "#6b7280", cursor: "pointer", textTransform: "capitalize" }}>
-                                                    {s}
+                                        <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-slate-400">
+                                            <span className="shrink-0">{task.estimatedMinutes} min</span>
+                                            {task.deadline && <span>due {task.deadline.slice(0, 10)}</span>}
+                                            {task.scheduledDate && task.scheduledStartTime && (
+                                                <Badge tone="blue" className="max-w-full overflow-hidden text-ellipsis">
+                                                    {task.scheduledDate} {task.scheduledStartTime}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </Panel>
+                </div>
+
+                <div className="grid min-w-0 flex-1 gap-5">
+                    {engineMeta && (
+                        <Panel>
+                            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                                <h2 className="text-lg font-semibold text-white">Engine Result</h2>
+                                <Badge>Requested: {engineMeta.requestedMode} / Used: {engineMeta.usedMode}</Badge>
+                            </div>
+                            {engineMeta.fallback && (
+                                <div className="mb-4"><Alert tone="amber">
+                                    {engineMeta.fallback.code}: {engineMeta.fallback.message}
+                                </Alert></div>
+                            )}
+                            {engineMeta.scheduleSummary && (
+                                <div className="mb-4">
+                                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Summary</p>
+                                    <p className="text-sm text-slate-300">{engineMeta.scheduleSummary}</p>
+                                </div>
+                            )}
+                            {engineMeta.instructionDeviations.length > 0 && (
+                                <div className="mb-4">
+                                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Instruction Notes</p>
+                                    {engineMeta.instructionDeviations.map((item, index) => (
+                                        <div key={index} className="py-1 text-sm text-slate-300">
+                                            {item}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {engineMeta.unscheduled.length > 0 && (
+                                <div>
+                                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Unscheduled</p>
+                                    {engineMeta.unscheduled.map((item) => (
+                                        <div key={item.taskId} className="py-1 text-sm text-slate-300">
+                                            <span className="font-semibold text-white">{item.title}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {engineMeta.unscheduled.length === 0 && (
+                                <p className="text-sm text-slate-400">All tasks fit within the normal schedule window.</p>
+                            )}
+                        </Panel>
+                    )}
+
+                    <Panel>
+                        <div className="mb-4 flex items-center justify-between">
+                            <h2 className="text-lg font-semibold text-white">Daily Schedule</h2>
+                            {loadingBlocks && <Loader2 className="h-5 w-5 animate-spin text-cyan-200" />}
+                        </div>
+                        {blocks.length === 0 && !loadingBlocks ? (
+                            <div className="rounded-md border border-white/10 bg-white/[0.04] px-6 py-10 text-center text-sm text-slate-400">
+                                No blocks yet. Generate a schedule or add a fixed block.
+                            </div>
+                        ) : (
+                            <div className="grid gap-3">
+                                {blocks.map((block) => (
+                                    <div key={block._id} className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                            <div className="font-mono text-sm text-blue-100 sm:w-28">
+                                                <div className="font-semibold">{block.startTime}</div>
+                                                <div className="text-slate-500">{block.endTime}</div>
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className={`truncate text-sm font-semibold ${block.status === "completed" ? "text-slate-500 line-through" : "text-white"}`}>{block.title}</p>
+                                                {block.taskId && <p className="mt-1 truncate text-xs text-slate-500">Task: {block.taskId}</p>}
+                                            </div>
+                                            <Badge tone={blockStatusTone(block.status)}>{block.status}</Badge>
+                                        </div>
+                                        <div className="mt-3 flex flex-wrap items-center gap-2 sm:pl-28">
+                                            <span className="mr-1 text-xs text-slate-500">Mark as:</span>
+                                            {(["scheduled", "completed", "missed"] as const).map((nextStatus) => (
+                                                <button
+                                                    key={nextStatus}
+                                                    onClick={() => handleStatusChange(block._id, nextStatus)}
+                                                    disabled={actionId === block._id}
+                                                    className={`rounded-sm border px-2 py-1 text-xs font-semibold capitalize transition disabled:opacity-50 ${block.status === nextStatus ? "border-blue-300/30 bg-blue-500/20 text-blue-50" : "border-white/10 bg-white/5 text-slate-300 hover:text-white"}`}
+                                                >
+                                                    {nextStatus}
                                                 </button>
                                             ))}
-                                            <button onClick={() => { if (confirm("Delete this block?")) handleDelete(block._id); }} disabled={actionId === block._id} style={{ fontSize: 11, padding: "4px 10px", borderRadius: 999, border: "1px solid #fee2e2", background: "#fff", color: "#ef4444", cursor: "pointer", marginLeft: "auto" }}>
+                                            <button
+                                                onClick={() => { if (confirm("Delete this block?")) handleDelete(block._id); }}
+                                                disabled={actionId === block._id}
+                                                className="ml-auto rounded-sm border border-rose-300/30 bg-rose-400/10 px-2 py-1 text-xs font-semibold text-rose-100 transition hover:bg-rose-400/20 disabled:opacity-50"
+                                            >
                                                 Delete
                                             </button>
                                         </div>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    )}
+                                ))}
+                            </div>
+                        )}
+                    </Panel>
                 </div>
-            </main>
-        </div>
+            </div>
+        </>
     );
 }

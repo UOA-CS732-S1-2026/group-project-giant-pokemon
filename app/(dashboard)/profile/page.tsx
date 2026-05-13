@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { calculateTaskStats, normalizeDate } from "@/lib/productivityOcean";
+import { Badge, Button, FieldLabel, LoadingState, PageHeader, Panel, Select, TextInput } from "@/components/ui/foundation";
 import type { Task, TaskAPI } from "@/types/task";
 
 type ProfileUser = {
@@ -151,122 +153,83 @@ export default function ProfilePage() {
   }
 
   if (loading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#050b24] text-white">
-        Loading...
-      </div>
-    );
+    return <LoadingState label="Loading profile..." />;
   }
 
   const fallbackInitial = (user.name ?? "U").charAt(0).toUpperCase();
 
   return (
-    <div
-      className={`min-h-screen p-10 text-white bg-gradient-to-b ${theme.bg} transition-all duration-700`}
-    >
-      <header className="mb-10">
-        <h1 className="text-4xl font-extrabold tracking-tight">
-          Profile Overview
-        </h1>
-        <p className={`${theme.accent} mt-1 text-lg`}>
-          Your theme adapts to your current workload.
-        </p>
-      </header>
+    <>
+      <PageHeader
+        label="Profile"
+        title="Profile Overview"
+        description="Your profile and workload signals in one operational view."
+        actions={<Badge tone={activePercent >= 80 ? "rose" : activePercent >= 60 ? "amber" : "cyan"}>{theme.label}</Badge>}
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <Panel className={`col-span-2 bg-gradient-to-b ${theme.bg}`}>
+          <h3 className="text-xl font-semibold text-white">Personal Information</h3>
 
-        {/* LEFT — Editable Info */}
-        <div className="col-span-2 bg-white/10 p-8 rounded-3xl shadow-xl backdrop-blur-md">
-          <h3 className="text-xl font-bold mb-6">Personal Information</h3>
-
-          <div className="space-y-6">
-
+          <div className="mt-6 space-y-5">
             <div>
-              <label className="block font-medium mb-1">Full name</label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full bg-black/30 text-white border border-white/20 rounded-lg px-4 py-2"
-              />
+              <FieldLabel>Full name</FieldLabel>
+              <TextInput value={name} onChange={(e) => setName(e.target.value)} />
             </div>
 
             <div>
-              <label className="block font-medium mb-1">Email</label>
-              <input
-                value={user.email ?? ""}
-                disabled
-                className="w-full bg-black/30 text-blue-300 border border-white/20 rounded-lg px-4 py-2"
-              />
+              <FieldLabel>Email</FieldLabel>
+              <TextInput value={user.email ?? ""} disabled className="text-blue-200 disabled:opacity-80" />
             </div>
 
             <div>
-              <label className="block font-medium mb-1">Role</label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full bg-black/30 text-white border border-white/20 rounded-lg px-4 py-2"
-              >
+              <FieldLabel>Role</FieldLabel>
+              <Select value={role} onChange={(e) => setRole(e.target.value)}>
                 <option>Student</option>
                 <option>Developer</option>
                 <option>Researcher</option>
                 <option>Professional</option>
-              </select>
+              </Select>
             </div>
-
           </div>
-        </div>
+        </Panel>
 
-        {/* RIGHT — Summary + Photo */}
-        <div className="bg-white/10 p-8 rounded-3xl shadow-xl backdrop-blur-md text-center flex flex-col items-center">
-
-          {/* Profile Photo or Initial */}
+        <Panel className="flex flex-col items-center text-center">
           {profilePhoto ? (
-            <img
+            <Image
               src={profilePhoto}
-              className="w-32 h-32 rounded-full object-cover shadow-lg border border-white/20"
+              alt="Profile"
+              width={128}
+              height={128}
+              className="h-32 w-32 rounded-full border border-white/20 object-cover shadow-lg"
             />
           ) : (
-            <div className="w-32 h-32 rounded-full bg-white/20 flex items-center justify-center text-5xl font-bold shadow-lg border border-white/20">
+            <div className="flex h-32 w-32 items-center justify-center rounded-full border border-white/20 bg-white/10 text-5xl font-bold shadow-lg">
               {fallbackInitial}
             </div>
           )}
 
-          {/* Upload Button */}
-          <label className="mt-4 cursor-pointer bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-medium transition">
+          <label className="mt-4 cursor-pointer rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-blue-200/50 hover:bg-blue-400/10">
             Upload Photo
             <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
           </label>
 
-          <p className="text-blue-100 text-sm mt-4">{role}</p>
-
-          <div className="w-full h-px bg-white/20 my-6"></div>
-
-          <p className="text-lg font-semibold">Current Workload</p>
-          <p className={`${theme.accent} text-xl font-bold`}>
-            {theme.label}
-          </p>
-
+          <p className="mt-4 text-sm text-blue-100">{role}</p>
+          <div className="my-6 h-px w-full bg-white/10"></div>
+          <p className="text-lg font-semibold text-white">Current Workload</p>
+          <p className={`${theme.accent} text-xl font-bold`}>{theme.label}</p>
           <p className="mt-4 text-blue-100">
-            Workload Level:{" "}
-            <span className="font-bold text-white">{activePercent}%</span>
+            Workload Level: <span className="font-bold text-white">{activePercent}%</span>
           </p>
-
           <p className="mt-2 text-blue-100">
-            Active Tasks:{" "}
-            <span className="font-bold text-white">{activeTasks}</span>
+            Active Tasks: <span className="font-bold text-white">{activeTasks}</span>
           </p>
 
-        </div>
+          <Button type="button" className="mt-6 w-full" onClick={handleSave}>
+            Save Changes
+          </Button>
+        </Panel>
       </div>
-
-      <div className="mt-12 flex justify-center">
-        <button
-          onClick={handleSave}
-          className="bg-blue-600 text-white font-semibold px-10 py-3 rounded-xl text-lg shadow-md hover:bg-blue-700 transition"
-        >
-          Save Changes
-        </button>
-      </div>
-    </div>
+    </>
   );
 }

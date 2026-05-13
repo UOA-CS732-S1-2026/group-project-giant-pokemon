@@ -3,7 +3,8 @@
 import { Suspense, useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Sidebar from "@/components/Sidebar";
+import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Plus, Sparkles } from "lucide-react";
+import { Alert, Badge, Button, PageHeader, Panel } from "@/components/ui/foundation";
 
 type ScheduleBlock = {
   _id: string;
@@ -77,15 +78,15 @@ const generateTimeSlots = (start: string, end: string): string[] => {
 // Get task card color based on title hash
 const getTaskColor = (title: string): { bg: string; border: string; text: string } => {
   const colors = [
-    { bg: "#eff6ff", border: "#3b82f6", text: "#1e40af" },
-    { bg: "#f0fdf4", border: "#22c55e", text: "#166534" },
-    { bg: "#fef3c7", border: "#f59e0b", text: "#92400e" },
-    { bg: "#fce7f3", border: "#ec4899", text: "#9d174d" },
-    { bg: "#ede9fe", border: "#8b5cf6", text: "#4c1d95" },
-    { bg: "#ffedd5", border: "#f97316", text: "#9a3412" },
-    { bg: "#e0f2fe", border: "#0ea5e9", text: "#0c4a6e" },
-    { bg: "#dcfce7", border: "#10b981", text: "#064e3b" },
-    { bg: "#fef9c3", border: "#eab308", text: "#713f12" },
+    { bg: "rgba(37, 99, 235, 0.18)", border: "#60a5fa", text: "#dbeafe" },
+    { bg: "rgba(16, 185, 129, 0.16)", border: "#34d399", text: "#d1fae5" },
+    { bg: "rgba(245, 158, 11, 0.16)", border: "#fbbf24", text: "#fef3c7" },
+    { bg: "rgba(236, 72, 153, 0.16)", border: "#f472b6", text: "#fce7f3" },
+    { bg: "rgba(139, 92, 246, 0.18)", border: "#a78bfa", text: "#ede9fe" },
+    { bg: "rgba(249, 115, 22, 0.16)", border: "#fb923c", text: "#ffedd5" },
+    { bg: "rgba(14, 165, 233, 0.16)", border: "#38bdf8", text: "#e0f2fe" },
+    { bg: "rgba(20, 184, 166, 0.16)", border: "#2dd4bf", text: "#ccfbf1" },
+    { bg: "rgba(99, 102, 241, 0.18)", border: "#818cf8", text: "#e0e7ff" },
   ];
   let hash = 0;
   for (let i = 0; i < title.length; i++) {
@@ -178,9 +179,8 @@ export default function TimetablePage() {
 
 function TimetableLoading() {
   return (
-    <div style={{ minHeight: "100vh", background: "#f0f2f5", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ width: 28, height: 28, border: "2px solid #e5e7eb", borderTopColor: "#6b7280", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    <div className="flex min-h-[320px] items-center justify-center rounded-lg border border-white/10 bg-slate-950/50">
+      <Loader2 className="h-7 w-7 animate-spin text-cyan-200" />
     </div>
   );
 }
@@ -342,57 +342,49 @@ function TimetableContent() {
   const totalCount = blocks.length;
   const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
-  const categoryColors: Record<string, { bg: string; color: string }> = {
-    rest:        { bg: "#f0fdf4", color: "#15803d" },
-    exercise:    { bg: "#eff6ff", color: "#1d4ed8" },
-    learning:    { bg: "#fdf4ff", color: "#7e22ce" },
-    social:      { bg: "#fff7ed", color: "#c2410c" },
-    creative:    { bg: "#fef9c3", color: "#854d0e" },
-    mindfulness: { bg: "#f0fdfa", color: "#0f766e" },
-  };
-
   if (loading) {
     return <TimetableLoading />;
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f0f2f5", display: "flex" }}>
-      <Sidebar />
+    <>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         .smart-timetable {
           display: flex;
           flex-direction: column;
-          background: #fff;
-          border-radius: 20px;
+          background: rgba(2, 6, 23, 0.55);
+          border: 1px solid rgba(255,255,255,0.10);
+          border-radius: 8px;
           overflow: hidden;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+          box-shadow: 0 24px 60px rgba(30, 64, 175, 0.20);
+          backdrop-filter: blur(20px);
         }
         .smart-row {
           display: flex;
-          border-bottom: 1px solid #f0f0f0;
+          border-bottom: 1px solid rgba(255,255,255,0.10);
           transition: background 0.15s ease;
         }
         .smart-time-cell {
           width: 95px;
           flex-shrink: 0;
           padding: 14px 12px;
-          background: #fff;
-          border-right: 1px solid #f0f0f0;
+          background: rgba(15, 23, 42, 0.72);
+          border-right: 1px solid rgba(255,255,255,0.10);
           font-family: 'SF Mono', 'Menlo', monospace;
           font-size: 13px;
           font-weight: 500;
-          color: #5b6e8c;
+          color: #bfdbfe;
         }
         .smart-content-cell {
           flex: 1;
           padding: 8px 12px;
         }
         .free-block {
-          background: #f8fafc;
-          border-radius: 12px;
+          background: rgba(255,255,255,0.04);
+          border-radius: 8px;
           padding: 12px 16px;
-          border: 1px dashed #cbd5e1;
+          border: 1px dashed rgba(125, 211, 252, 0.30);
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -400,23 +392,23 @@ function TimetableContent() {
           height: 100%;
         }
         .free-block:hover {
-          background: #f1f5f9;
-          border-color: #94a3b8;
+          background: rgba(14, 165, 233, 0.08);
+          border-color: rgba(186, 230, 253, 0.50);
         }
         .task-card {
-          background: #f8fafc;
-          border-radius: 12px;
+          background: rgba(255,255,255,0.05);
+          border-radius: 8px;
           padding: 10px 14px;
           transition: all 0.2s ease;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+          box-shadow: 0 1px 2px rgba(0,0,0,0.12);
           height: 100%;
         }
         .task-card:hover {
           transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+          box-shadow: 0 8px 22px rgba(30,64,175,0.22);
         }
         .add-btn:hover {
-          background: #f3f4f6 !important;
+          background: rgba(59,130,246,0.16) !important;
         }
         @media (max-width: 560px) {
           .smart-time-cell { width: 75px; padding: 12px 8px; font-size: 11px; }
@@ -425,62 +417,51 @@ function TimetableContent() {
         }
       `}</style>
 
-      <main style={{ flex: 1, maxWidth: 800, margin: "0 auto", padding: "32px 20px" }}>
-
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>
-          <div>
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1e293b", letterSpacing: "-0.3px", marginBottom: 4 }}>
-              Timetable
-            </h1>
-            <p style={{ fontSize: 13, color: "#94a3b8" }}>
-              Smart view · {userStartTime} – {userEndTime}
-            </p>
-          </div>
-          <Link
-            href="/schedule"
-            style={{ fontSize: 13, fontWeight: 500, color: "#fff", background: "#1e293b", borderRadius: 14, padding: "8px 18px", textDecoration: "none" }}
-          >
-            + Generate
+      <PageHeader
+        label="Timetable"
+        title="Timetable"
+        description={`Smart view · ${userStartTime} - ${userEndTime}`}
+        actions={
+          <Link href="/schedule" className="inline-flex items-center gap-2 rounded-md border border-blue-300/30 bg-blue-500/20 px-4 py-2.5 text-sm font-semibold text-blue-50 shadow-lg shadow-blue-950/20 transition hover:border-blue-200/60 hover:bg-blue-500/30">
+            <Plus className="h-4 w-4" />
+            Generate
           </Link>
-        </div>
+        }
+      />
 
-        {/* Date navigator */}
-        <div style={{ background: "#fff", borderRadius: 20, padding: "12px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <button onClick={() => shiftDate(-1)} style={{ width: 38, height: 38, borderRadius: 12, border: "1px solid #eef2f6", background: "#fff", cursor: "pointer", fontSize: 18, color: "#64748b" }}>‹</button>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 18, fontWeight: 600, color: "#0f172a" }}>{formatDateLabel(date)}</div>
-            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2, fontFamily: "monospace" }}>{date}</div>
+      <Panel className="flex items-center justify-between gap-4">
+          <Button onClick={() => shiftDate(-1)} variant="secondary" className="h-10 w-10 px-0">
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+          <div className="text-center">
+          <div className="text-lg font-semibold text-white">{formatDateLabel(date)}</div>
+          <div className="mt-1 font-mono text-xs text-slate-400">{date}</div>
             {date !== new Date().toISOString().slice(0, 10) && (
-              <button onClick={() => handleDateChange(new Date().toISOString().slice(0, 10))} style={{ fontSize: 11, color: "#3b82f6", background: "none", border: "none", cursor: "pointer", marginTop: 4 }}>Back to today</button>
+            <button onClick={() => handleDateChange(new Date().toISOString().slice(0, 10))} className="mt-1 text-xs font-semibold text-blue-200 hover:text-white">Back to today</button>
             )}
           </div>
-          <button onClick={() => shiftDate(1)} style={{ width: 38, height: 38, borderRadius: 12, border: "1px solid #eef2f6", background: "#fff", cursor: "pointer", fontSize: 18, color: "#64748b" }}>›</button>
-        </div>
+        <Button onClick={() => shiftDate(1)} variant="secondary" className="h-10 w-10 px-0">
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </Panel>
 
         {/* Progress bar */}
         {totalCount > 0 && (
-          <div style={{ background: "#fff", borderRadius: 16, padding: "12px 20px", marginBottom: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 12, fontWeight: 500, color: "#64748b" }}>Daily progress</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: "#1e293b" }}>{completedCount}/{totalCount} tasks</span>
+        <Panel>
+          <div className="mb-2 flex justify-between">
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Daily progress</span>
+            <span className="text-xs font-semibold text-blue-100">{completedCount}/{totalCount} tasks</span>
             </div>
-            <div style={{ height: 5, background: "#eef2f6", borderRadius: 10 }}>
-              <div style={{ height: "100%", width: `${progress}%`, background: "#10b981", borderRadius: 10, transition: "width 0.3s" }} />
+          <div className="h-2 overflow-hidden rounded-full bg-slate-900/80">
+            <div className="h-full rounded-full bg-emerald-400 shadow-lg shadow-emerald-400/30 transition-all" style={{ width: `${progress}%` }} />
             </div>
-          </div>
+        </Panel>
         )}
 
-        {error && (
-          <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 14, padding: "12px 18px", marginBottom: 20 }}>
-            <p style={{ fontSize: 13, color: "#b91c1c" }}>{error}</p>
-          </div>
-        )}
+      {error && <Alert>{error}</Alert>}
 
         {fetching && (
-          <div style={{ display: "flex", justifyContent: "center", padding: "60px 0" }}>
-            <div style={{ width: 24, height: 24, border: "2px solid #e2e8f0", borderTopColor: "#64748b", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-          </div>
+        <TimetableLoading />
         )}
 
         {/* Smart Timetable */}
@@ -515,13 +496,13 @@ function TimetableContent() {
                           <select
                             value={block.status}
                             onChange={(e) => handleStatusChange(block._id, e.target.value as ScheduleBlock["status"])}
-                            style={{ fontSize: 10, padding: "4px 6px", borderRadius: 8, border: `1px solid ${colorTheme.border}40`, background: "#fff", cursor: "pointer" }}
+                            style={{ fontSize: 10, padding: "4px 6px", borderRadius: 6, border: `1px solid ${colorTheme.border}40`, background: "rgba(15,23,42,0.92)", color: "#e2e8f0", cursor: "pointer" }}
                           >
                             <option value="scheduled">📋 Active</option>
                             <option value="completed">✅ Done</option>
                             <option value="missed">⏰ Missed</option>
                           </select>
-                          <button onClick={() => handleDelete(block._id)} style={{ fontSize: 10, padding: "4px 8px", borderRadius: 8, border: "1px solid #fee2e2", background: "#fff", color: "#ef4444", cursor: "pointer" }}>
+                          <button onClick={() => handleDelete(block._id)} style={{ fontSize: 10, padding: "4px 8px", borderRadius: 6, border: "1px solid rgba(253,164,175,0.35)", background: "rgba(244,63,94,0.10)", color: "#fecdd3", cursor: "pointer" }}>
                             Delete
                           </button>
                         </div>
@@ -540,13 +521,13 @@ function TimetableContent() {
                     <div className="smart-content-cell" style={{ padding: "8px 12px" }}>
                       <div className="free-block" style={{ minHeight: `${Math.max(65, 65 * heightMultiplier)}px` }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                          <span style={{ fontSize: 20 }}>🕊️</span>
+                          <CalendarDays className="h-5 w-5 text-cyan-100" />
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 500, color: "#475569" }}>Free time</div>
+                            <div style={{ fontSize: 13, fontWeight: 500, color: "#e2e8f0" }}>Free time</div>
                             <div style={{ fontSize: 11, color: "#94a3b8" }}>{hoursCount} hours · no tasks</div>
                           </div>
                         </div>
-                        <span style={{ fontSize: 11, color: "#cbd5e1" }}>— available —</span>
+                        <span style={{ fontSize: 11, color: "#64748b" }}>available</span>
                       </div>
                     </div>
                   </div>
@@ -557,54 +538,48 @@ function TimetableContent() {
         )}
 
         {/* Free Time Suggestions - AI Suggestions */}
-        <div style={{ marginTop: 24 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+      <Panel>
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p style={{ fontSize: 15, fontWeight: 600, color: "#1e293b", marginBottom: 2 }}>Free Time Suggestions</p>
-              <p style={{ fontSize: 12, color: "#94a3b8" }}>AI recommends what to do in your free slots</p>
+            <h2 className="text-lg font-semibold text-white">Free Time Suggestions</h2>
+            <p className="mt-1 text-sm text-slate-400">AI recommends what to do in your free slots</p>
             </div>
-            <button
+          <Button
               onClick={handleGetFreeTimeSuggestions}
               disabled={loadingFreeTime}
-              style={{ fontSize: 12, fontWeight: 500, padding: "8px 16px", borderRadius: 12, border: "none", background: loadingFreeTime ? "#e5e7eb" : "#2563eb", color: loadingFreeTime ? "#9ca3af" : "#fff", cursor: loadingFreeTime ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}
             >
-              {loadingFreeTime && (
-                <div style={{ width: 12, height: 12, border: "2px solid rgba(255,255,255,0.4)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-              )}
+            {loadingFreeTime ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {loadingFreeTime ? "Analyzing..." : "Get AI Suggestions"}
-            </button>
+          </Button>
           </div>
 
           {freeTimeSuggestions !== null && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="grid gap-3">
               {freeTimeSuggestions.length === 0 ? (
-                <div style={{ background: "#fff", borderRadius: 14, padding: "24px", textAlign: "center" }}>
-                  <p style={{ fontSize: 13, color: "#9ca3af" }}>No free slots today — fully packed!</p>
+              <div className="rounded-md border border-white/10 bg-white/[0.04] p-6 text-center">
+                <p className="text-sm text-slate-400">No free slots today, fully packed.</p>
                 </div>
               ) : (
                 freeTimeSuggestions.map((s, i) => {
-                  const cc = categoryColors[s.category] ?? { bg: "#f8fafc", color: "#475569" };
                   const isAdding = addingSlot === s.slot;
                   return (
-                    <div key={i} style={{ background: "#fff", borderRadius: 14, padding: "14px 16px", border: "1px solid #f3f4f6" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                        <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{s.slot}</span>
-                        <span style={{ fontSize: 11, color: "#94a3b8" }}>{s.duration}</span>
-                        <span style={{ fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 999, background: cc.bg, color: cc.color, marginLeft: "auto", textTransform: "capitalize" }}>
-                          {s.category}
-                        </span>
+                  <div key={`${s.slot}-${i}`} className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-sm font-semibold text-blue-100">{s.slot}</span>
+                      <span className="text-xs text-slate-400">{s.duration}</span>
+                      <Badge className="ml-auto capitalize">{s.category}</Badge>
                       </div>
-                      <p style={{ fontSize: 13, color: "#374151", margin: "0 0 10px", lineHeight: 1.5 }}>{s.suggestion}</p>
+                    <p className="mb-3 text-sm leading-6 text-slate-300">{s.suggestion}</p>
                       <button
                         className="add-btn"
                         onClick={() => handleAddSuggestionToTimetable(s)}
                         disabled={isAdding}
-                        style={{ fontSize: 11, fontWeight: 500, padding: "5px 12px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: isAdding ? "#9ca3af" : "#374151", cursor: isAdding ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 5, transition: "background 0.15s" }}
+                      style={{ fontSize: 11, fontWeight: 600, padding: "5px 12px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)", color: isAdding ? "#94a3b8" : "#e2e8f0", cursor: isAdding ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 5, transition: "background 0.15s" }}
                       >
                         {isAdding && (
                           <div style={{ width: 10, height: 10, border: "1.5px solid #d1d5db", borderTopColor: "#6b7280", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
                         )}
-                        {isAdding ? "Adding..." : "+ Add to Timetable"}
+                      {isAdding ? "Adding..." : "Add to Timetable"}
                       </button>
                     </div>
                   );
@@ -612,9 +587,7 @@ function TimetableContent() {
               )}
             </div>
           )}
-        </div>
-
-      </main>
-    </div>
+      </Panel>
+    </>
   );
 }

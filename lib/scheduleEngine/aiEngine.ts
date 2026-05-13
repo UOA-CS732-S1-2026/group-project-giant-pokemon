@@ -1,5 +1,6 @@
 import { isAIClientError } from "@/lib/ai/errors";
 import { parseAIJson, runPrompt } from "@/lib/ai";
+import { buildAISchedulePrompt } from "@/lib/ai/prompts/schedulePrompt";
 import type { AIEnv } from "@/lib/ai/config";
 import type { AIResult, FetchFunction } from "@/lib/ai/types";
 import {
@@ -17,8 +18,7 @@ import type {
     EngineOccupiedBlock,
     ScheduleEngineResult,
     ScheduleGenerationFallbackCode,
-    ScheduleMetaItem,
-    ScheduleReasoningItem,
+    ScheduleTaskItem,
     ScheduleWindowConfig,
     SchedulableTask,
 } from "@/lib/scheduleEngine/types";
@@ -51,22 +51,15 @@ type AIEngineOptions = {
 };
 
 type AIScheduleResponse = {
+    summary?: unknown;
+    instructionDeviations?: unknown;
     blocks?: Array<{
         taskId?: unknown;
         startTime?: unknown;
         endTime?: unknown;
     }>;
-    scheduledReasoning?: Array<{
-        taskId?: unknown;
-        reasoning?: unknown;
-    }>;
-    overflow?: Array<{
-        taskId?: unknown;
-        reason?: unknown;
-    }>;
     unscheduled?: Array<{
         taskId?: unknown;
-        reason?: unknown;
     }>;
 };
 
@@ -75,15 +68,13 @@ type TimeRange = {
     end: number;
 };
 
+export { buildAISchedulePrompt } from "@/lib/ai/prompts/schedulePrompt";
+
 export async function generateAISchedule(
     input: AIEngineInput,
     options: AIEngineOptions = {}
 ): Promise<ScheduleEngineResult> {
-    const baseline = generateRuleSchedule(input);
-    const prompt = buildAISchedulePrompt({
-        ...input,
-        baseline,
-    });
+    const prompt = buildAISchedulePrompt(input);
     const promptRunner = options.runPrompt ?? runPrompt;
 
     try {
@@ -102,98 +93,14 @@ export async function generateAISchedule(
 
         return validateAIOutput({
             ...input,
-            baseline,
             output: parsed,
         });
     } catch (error) {
         return createFallbackResult({
-            baseline,
+            input,
             error,
         });
     }
-}
-
-export function buildAISchedulePrompt({
-    date,
-    userId = DEMO_USER_ID,
-    tasks,
-    occupiedBlocks = [],
-    window,
-    instruction,
-    baseline,
-}: AIEngineInput & { baseline: ScheduleEngineResult }): string {
-    const resolvedWindow = resolveScheduleWindow(window);
-    const normalizedInstruction = normalizeInstruction(instruction);
-
-    return [
-        "You are the Taskflow schedule engine AI mode.",
-        "Return JSON only. Do not include markdown or prose outside JSON.",
-        "Your job is to adjust the deterministic rule baseline only when the user instruction justifies it.",
-        "Keep the same public output contract as the rule engine.",
-        "",
-        "Hard constraints:",
-        "- Use only provided task ids.",
-        "- Do not create, rename, split, or resize tasks.",
-        "- Each scheduled task appears at most once.",
-        "- Schedule blocks must not overlap each other.",
-        "- Schedule blocks must not overlap occupied blocks.",
-        "- Fixed or completed occupied blocks cannot move.",
-        "- Only tasks with deadline on or before the schedule date may go after the normal window.",
-        "- No task can end after the overflow cap.",
-        "- Use HH:mm times.",
-        "- Every scheduled task requires reasoning.",
-        "",
-        "Strong preferences:",
-        "- Higher priority tasks are generally earlier.",
-        "- Earlier deadlines are generally earlier.",
-        "- Must-complete-today tasks should be scheduled if any valid slot exists.",
-        "",
-        "Soft preferences may follow the user instruction when safe.",
-        "",
-        `User id: ${userId}`,
-        `Schedule date: ${date}`,
-        `Normal window: ${resolvedWindow.normalStartTime}-${resolvedWindow.normalEndTime}`,
-        `Overflow cap: ${resolvedWindow.overflowEndTime}`,
-        `User instruction: ${normalizedInstruction || "No instruction provided. Stay close to the rule baseline."}`,
-        "",
-        "Tasks JSON:",
-        JSON.stringify(tasks),
-        "",
-        "Occupied blocks JSON:",
-        JSON.stringify(occupiedBlocks),
-        "",
-        "Rule baseline JSON:",
-        JSON.stringify(baseline),
-        "",
-        "Return this exact JSON shape:",
-        JSON.stringify({
-            blocks: [
-                {
-                    taskId: "task-id",
-                    startTime: "09:00",
-                    endTime: "10:00",
-                },
-            ],
-            scheduledReasoning: [
-                {
-                    taskId: "task-id",
-                    reasoning: "Why this task was placed here, including any meaningful deviation from the rule baseline.",
-                },
-            ],
-            overflow: [
-                {
-                    taskId: "task-id",
-                    reason: "Why this task was placed after the normal window.",
-                },
-            ],
-            unscheduled: [
-                {
-                    taskId: "task-id",
-                    reason: "Why this task could not be scheduled.",
-                },
-            ],
-        }),
-    ].join("\n");
 }
 
 export function validateAIOutput({
@@ -204,24 +111,22 @@ export function validateAIOutput({
     window,
     output,
 }: AIEngineInput & {
-    baseline: ScheduleEngineResult;
     output: AIScheduleResponse;
 }): ScheduleEngineResult {
     const resolvedWindow = resolveScheduleWindow(window);
     const normalStart = timeToMinutes(resolvedWindow.normalStartTime);
     const normalEnd = timeToMinutes(resolvedWindow.normalEndTime);
-    const overflowEnd = timeToMinutes(resolvedWindow.overflowEndTime);
     const tasksById = new Map(tasks.map((task) => [task.id, task]));
+    const scheduleSummary = normalizeSummary(output.summary);
+    const instructionDeviations = normalizeInstructionDeviations(
+        output.instructionDeviations
+    );
     const blocks = assertArray(output.blocks, "blocks");
-    const reasoning = normalizeReasoning(output.scheduledReasoning, tasksById);
-    const overflow = normalizeMetaItems(output.overflow, tasksById, "overflow");
-    const unscheduled = normalizeMetaItems(output.unscheduled, tasksById, "unscheduled");
+    const unscheduled = normalizeUnscheduledItems(output.unscheduled, tasksById);
     const occupiedRanges = toOccupiedRanges(occupiedBlocks);
     const generatedBlocks: EngineGeneratedBlock[] = [];
     const scheduledTaskIds = new Set<string>();
     const unscheduledTaskIds = new Set(unscheduled.map((item) => item.taskId));
-    const overflowTaskIds = new Set(overflow.map((item) => item.taskId));
-    const reasoningTaskIds = new Set(reasoning.map((item) => item.taskId));
 
     for (const block of blocks) {
         if (!isPlainObject(block) || typeof block.taskId !== "string") {
@@ -253,24 +158,12 @@ export function validateAIOutput({
             throw new Error(`AI changed duration for task ${task.id}.`);
         }
 
-        if (end > overflowEnd) {
-            throw new Error(`AI scheduled task ${task.id} after overflow cap.`);
-        }
-
-        if (end > normalEnd && !isMustCompleteToday(task, date)) {
-            throw new Error(`AI overflowed non-must-complete task ${task.id}.`);
-        }
-
-        if (end > normalEnd && !overflowTaskIds.has(task.id)) {
-            throw new Error(`AI overflowed task ${task.id} without overflow reason.`);
+        if (end > normalEnd) {
+            throw new Error(`AI scheduled task ${task.id} after normal window.`);
         }
 
         if (start < normalStart) {
             throw new Error(`AI scheduled task ${task.id} before normal window.`);
-        }
-
-        if (!reasoningTaskIds.has(task.id)) {
-            throw new Error(`AI scheduled task ${task.id} without reasoning.`);
         }
 
         generatedBlocks.push({
@@ -289,20 +182,6 @@ export function validateAIOutput({
 
     if (hasOverlap(generatedRanges) || overlapsAny(generatedRanges, occupiedRanges)) {
         throw new Error("AI schedule overlaps occupied or generated blocks.");
-    }
-
-    for (const item of overflow) {
-        const generatedBlock = generatedBlocks.find((block) => block.taskId === item.taskId);
-
-        if (!generatedBlock || timeToMinutes(generatedBlock.endTime) <= normalEnd) {
-            throw new Error(`AI returned overflow reason for non-overflow task ${item.taskId}.`);
-        }
-    }
-
-    for (const item of reasoning) {
-        if (!scheduledTaskIds.has(item.taskId)) {
-            throw new Error(`AI returned reasoning for non-scheduled task ${item.taskId}.`);
-        }
     }
 
     for (const task of tasks) {
@@ -325,20 +204,22 @@ export function validateAIOutput({
         meta: {
             requestedMode: "ai",
             usedMode: "ai",
-            scheduledReasoning: reasoning,
-            overflow,
+            scheduleSummary,
+            instructionDeviations,
             unscheduled,
         },
     };
 }
 
 function createFallbackResult({
-    baseline,
+    input,
     error,
 }: {
-    baseline: ScheduleEngineResult;
+    input: AIEngineInput;
     error: unknown;
 }): ScheduleEngineResult {
+    const baseline = generateRuleSchedule(input);
+
     return {
         blocks: baseline.blocks,
         meta: {
@@ -373,34 +254,43 @@ function getFallbackMessage(error: unknown): string {
     return "AI schedule generation failed validation.";
 }
 
-function normalizeInstruction(instruction: string | undefined) {
-    return instruction?.trim().slice(0, 1_000) ?? "";
+function normalizeSummary(value: unknown) {
+    if (typeof value !== "string" || !value.trim()) {
+        throw new Error("AI response must include summary.");
+    }
+
+    return value.trim();
 }
 
-function normalizeReasoning(
-    value: AIScheduleResponse["scheduledReasoning"],
+function normalizeInstructionDeviations(value: unknown) {
+    return assertArray(value, "instructionDeviations").map((item) => {
+        if (typeof item !== "string" || !item.trim()) {
+            throw new Error("AI instructionDeviations items must be non-empty strings.");
+        }
+
+        return item.trim();
+    });
+}
+
+function normalizeUnscheduledItems(
+    value: AIScheduleResponse["unscheduled"],
     tasksById: Map<string, SchedulableTask>
-): ScheduleReasoningItem[] {
+): ScheduleTaskItem[] {
     const seenTaskIds = new Set<string>();
 
-    return assertArray(value, "scheduledReasoning").map((item) => {
-        if (
-            !isPlainObject(item) ||
-            typeof item.taskId !== "string" ||
-            typeof item.reasoning !== "string" ||
-            !item.reasoning.trim()
-        ) {
-            throw new Error("AI scheduledReasoning items must include taskId and reasoning.");
+    return assertArray(value, "unscheduled").map((item) => {
+        if (!isPlainObject(item) || typeof item.taskId !== "string") {
+            throw new Error("AI unscheduled items must include taskId.");
         }
 
         const task = tasksById.get(item.taskId);
 
         if (!task) {
-            throw new Error(`AI reasoning referenced unknown task id: ${item.taskId}.`);
+            throw new Error(`AI unscheduled referenced unknown task id: ${item.taskId}.`);
         }
 
         if (seenTaskIds.has(task.id)) {
-            throw new Error(`AI returned duplicate reasoning for task ${task.id}.`);
+            throw new Error(`AI returned duplicate unscheduled item for task ${task.id}.`);
         }
 
         seenTaskIds.add(task.id);
@@ -408,62 +298,20 @@ function normalizeReasoning(
         return {
             taskId: task.id,
             title: task.title,
-            reasoning: item.reasoning.trim(),
         };
     });
 }
 
-function normalizeMetaItems(
-    value: AIScheduleResponse["overflow"] | AIScheduleResponse["unscheduled"],
-    tasksById: Map<string, SchedulableTask>,
-    fieldName: "overflow" | "unscheduled"
-): ScheduleMetaItem[] {
-    const seenTaskIds = new Set<string>();
-
-    return assertArray(value, fieldName).map((item) => {
-        if (
-            !isPlainObject(item) ||
-            typeof item.taskId !== "string" ||
-            typeof item.reason !== "string" ||
-            !item.reason.trim()
-        ) {
-            throw new Error(`AI ${fieldName} items must include taskId and reason.`);
-        }
-
-        const task = tasksById.get(item.taskId);
-
-        if (!task) {
-            throw new Error(`AI ${fieldName} referenced unknown task id: ${item.taskId}.`);
-        }
-
-        if (seenTaskIds.has(task.id)) {
-            throw new Error(`AI returned duplicate ${fieldName} item for task ${task.id}.`);
-        }
-
-        seenTaskIds.add(task.id);
-
-        return {
-            taskId: task.id,
-            title: task.title,
-            reason: item.reason.trim(),
-        };
-    });
-}
-
-function assertArray<T>(value: T[] | undefined, fieldName: string): T[] {
+function assertArray<T = unknown>(value: unknown, fieldName: string): T[] {
     if (!Array.isArray(value)) {
         throw new Error(`AI response must include ${fieldName} array.`);
     }
 
-    return value;
+    return value as T[];
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isMustCompleteToday(task: SchedulableTask, date: string) {
-    return Boolean(task.deadline && task.deadline <= date);
 }
 
 function toOccupiedRanges(blocks: EngineOccupiedBlock[]): TimeRange[] {

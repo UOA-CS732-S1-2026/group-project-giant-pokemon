@@ -12,7 +12,7 @@ const baseTask: SchedulableTask = {
 };
 
 describe("createMockScheduleEngineResponse", () => {
-    it("returns API-compatible blocks and AI reasoning", () => {
+    it("returns API-compatible blocks and AI summary", () => {
         const result = createMockScheduleEngineResponse({
             date: "2026-05-05",
             mode: "ai",
@@ -33,19 +33,13 @@ describe("createMockScheduleEngineResponse", () => {
         expect(result.meta).toMatchObject({
             requestedMode: "ai",
             usedMode: "ai",
-            overflow: [],
+            scheduleSummary: "Mock AI scheduled tasks into available slots within the normal window.",
+            instructionDeviations: [],
             unscheduled: [],
         });
-        expect(result.meta.scheduledReasoning).toEqual([
-            {
-                taskId: "task-1",
-                title: "Finish assignment draft",
-                reasoning: "Mock AI reasoning: task was scheduled in the normal work window.",
-            },
-        ]);
     });
 
-    it("leaves scheduled reasoning empty in rule mode", () => {
+    it("returns a rule summary in rule mode", () => {
         const result = createMockScheduleEngineResponse({
             date: "2026-05-05",
             mode: "rule",
@@ -54,10 +48,10 @@ describe("createMockScheduleEngineResponse", () => {
 
         expect(result.meta.requestedMode).toBe("rule");
         expect(result.meta.usedMode).toBe("rule");
-        expect(result.meta.scheduledReasoning).toEqual([]);
+        expect(result.meta.scheduleSummary).toBe("Mock rule engine scheduled tasks into available slots.");
     });
 
-    it("places must-complete tasks into overflow when the normal window is full", () => {
+    it("marks must-complete tasks unscheduled when the normal window is full", () => {
         const result = createMockScheduleEngineResponse({
             date: "2026-05-05",
             mode: "rule",
@@ -72,16 +66,11 @@ describe("createMockScheduleEngineResponse", () => {
             tasks: [baseTask],
         });
 
-        expect(result.data[0]).toMatchObject({
-            taskId: "task-1",
-            startTime: "17:00",
-            endTime: "19:00",
-        });
-        expect(result.meta.overflow).toEqual([
+        expect(result.data).toEqual([]);
+        expect(result.meta.unscheduled).toEqual([
             {
                 taskId: "task-1",
                 title: "Finish assignment draft",
-                reason: "Task is due on or before the schedule date, so it was placed after 17:00.",
             },
         ]);
     });
@@ -111,9 +100,7 @@ describe("createMockScheduleEngineResponse", () => {
             {
                 taskId: "task-1",
                 title: "Finish assignment draft",
-                reason: "Task could not fit before 17:00 and is not due on or before the schedule date.",
             },
         ]);
     });
 });
-

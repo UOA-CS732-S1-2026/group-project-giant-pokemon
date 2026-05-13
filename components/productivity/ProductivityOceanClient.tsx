@@ -171,7 +171,7 @@ export default function ProductivityOceanClient() {
   if (status === "loading" || status === "idle") {
     return (
       <OceanShell>
-        <div className="flex min-h-[360px] items-center justify-center rounded-2xl border border-white/10 bg-slate-950/50">
+        <div className="flex min-h-[360px] items-center justify-center rounded-lg border border-white/10 bg-slate-950/50">
           <div className="flex flex-col items-center gap-3 text-slate-200">
             <Loader2 className="h-7 w-7 animate-spin text-cyan-200" />
             <p className="text-sm font-medium">Loading productivity ocean...</p>
@@ -184,13 +184,13 @@ export default function ProductivityOceanClient() {
   if (status === "error") {
     return (
       <OceanShell>
-        <section className="rounded-2xl border border-rose-300/30 bg-rose-500/10 p-6 text-rose-100">
+        <section className="rounded-lg border border-rose-300/30 bg-rose-500/10 p-6 text-rose-100">
           <h2 className="text-lg font-semibold">Could not load Productivity Ocean</h2>
           <p className="mt-2 text-sm text-rose-100/80">{error}</p>
           <button
             type="button"
             onClick={fetchOceanData}
-            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-rose-100 px-4 py-2 text-sm font-semibold text-rose-950 transition hover:bg-white"
+            className="mt-5 inline-flex items-center gap-2 rounded-md bg-rose-100 px-4 py-2 text-sm font-semibold text-rose-950 transition hover:bg-white"
           >
             <RefreshCw className="h-4 w-4" />
             Try again
@@ -203,7 +203,7 @@ export default function ProductivityOceanClient() {
   return (
     <OceanShell>
       <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-2xl border border-white/10 bg-slate-950/65 p-6 shadow-xl shadow-cyan-950/20">
+        <div className="rounded-lg border border-white/10 bg-slate-950/65 p-6 shadow-xl shadow-cyan-950/20">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-cyan-200">Productivity Ocean</p>
@@ -216,7 +216,7 @@ export default function ProductivityOceanClient() {
             <button
               type="button"
               onClick={fetchOceanData}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-200/30 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:border-cyan-100 hover:bg-cyan-400/10"
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-cyan-200/30 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:border-cyan-100 hover:bg-cyan-400/10"
             >
               <RefreshCw className="h-4 w-4" />
               Refresh
@@ -250,7 +250,7 @@ export default function ProductivityOceanClient() {
             activeTasks={taskStats.activeTasks}
             overdueTasks={taskStats.overdueTasks}
           />
-          <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-5">
+          <div className="rounded-lg border border-white/10 bg-slate-950/60 p-5">
             <h2 className="text-lg font-bold text-white">Backend Snapshot</h2>
             <div className="mt-4 grid gap-3">
               <MiniStat label="In progress" value={taskStats.inProgressTasks} />
@@ -276,9 +276,7 @@ export default function ProductivityOceanClient() {
 
 function OceanShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#06111f] px-4 py-6 text-white sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-5">{children}</div>
-    </div>
+    <div className="space-y-5 text-white">{children}</div>
   );
 }
 
@@ -299,7 +297,7 @@ function StatCard({
   };
 
   return (
-    <article className={`rounded-xl border p-4 ${tones[tone]}`}>
+    <article className={`rounded-md border p-4 ${tones[tone]}`}>
       <p className="text-xs font-semibold uppercase tracking-wide opacity-75">{label}</p>
       <p className="mt-3 text-2xl font-bold leading-tight">{value}</p>
     </article>
@@ -308,7 +306,7 @@ function StatCard({
 
 function MiniStat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+    <div className="flex items-center justify-between rounded-md border border-white/10 bg-white/5 px-4 py-3">
       <span className="text-sm text-slate-300">{label}</span>
       <span className="font-semibold text-white">{value}</span>
     </div>
@@ -317,9 +315,9 @@ function MiniStat({ label, value }: { label: string; value: string | number }) {
 
 function LevelCard({ totalXP, levelInfo }: { totalXP: number; levelInfo: ReturnType<typeof calculateLevel> }) {
   return (
-    <section className="rounded-2xl border border-white/10 bg-slate-950/65 p-6 shadow-xl shadow-cyan-950/20">
+    <section className="rounded-lg border border-white/10 bg-slate-950/65 p-6 shadow-xl shadow-cyan-950/20">
       <div className="flex items-start gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-300/15 text-amber-100">
+        <div className="flex h-12 w-12 items-center justify-center rounded-md bg-amber-300/15 text-amber-100">
           <Trophy className="h-6 w-6" />
         </div>
         <div className="min-w-0 flex-1">
@@ -351,7 +349,7 @@ function HealthCard({
   const status = getOceanStatus(health, totalTasks);
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-slate-950/60 p-5">
+    <section className="rounded-lg border border-white/10 bg-slate-950/60 p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-bold text-white">Ocean Health</h2>
@@ -393,7 +391,7 @@ function OceanScene({
   }[status];
 
   return (
-    <section className={`overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b ${sceneTone} p-5 shadow-2xl shadow-cyan-950/25`}>
+    <section className={`overflow-hidden rounded-lg border border-white/10 bg-gradient-to-b ${sceneTone} p-5 shadow-2xl shadow-cyan-950/25`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-xl font-bold text-white">Ocean Scene</h2>
@@ -405,7 +403,7 @@ function OceanScene({
         </span>
       </div>
 
-      <div className="relative mt-5 min-h-[360px] overflow-hidden rounded-2xl border border-white/10 bg-blue-950/35">
+      <div className="relative mt-5 min-h-[360px] overflow-hidden rounded-lg border border-white/10 bg-blue-950/35">
         <div className="pointer-events-none absolute inset-x-[-15%] top-4 h-20">
           <div className="animate-wave-move h-14 rounded-[50%] bg-white/10 blur-sm" />
         </div>
@@ -415,7 +413,7 @@ function OceanScene({
             <div>
               <Leaf className="mx-auto h-10 w-10 text-emerald-100" />
               <p className="mt-3 text-sm">No tasks yet. Create tasks to begin restoring your ocean.</p>
-              <Link href="/tasks" className="mt-5 inline-flex rounded-xl bg-cyan-100 px-4 py-2 text-sm font-semibold text-cyan-950">
+              <Link href="/tasks" className="mt-5 inline-flex rounded-md bg-cyan-100 px-4 py-2 text-sm font-semibold text-cyan-950">
                 Add tasks
               </Link>
             </div>
@@ -487,7 +485,7 @@ function OceanItemButton({
 
 function AchievementsPanel({ achievements }: { achievements: Achievement[] }) {
   return (
-    <section className="rounded-2xl border border-white/10 bg-slate-950/60 p-5">
+    <section className="rounded-lg border border-white/10 bg-slate-950/60 p-5">
       <div className="flex items-center gap-3">
         <Award className="h-5 w-5 text-amber-100" />
         <h2 className="text-lg font-bold text-white">Achievements</h2>
@@ -510,7 +508,7 @@ function AchievementCard({ achievement }: { achievement: Achievement }) {
   }[achievement.accent];
 
   return (
-    <article className={`rounded-xl border p-4 ${achievement.unlocked ? accent : "border-white/10 bg-white/5 text-slate-400"}`}>
+    <article className={`rounded-md border p-4 ${achievement.unlocked ? accent : "border-white/10 bg-white/5 text-slate-400"}`}>
       <div className="flex items-start gap-3">
         <CheckCircle2 className={`mt-0.5 h-5 w-5 ${achievement.unlocked ? "" : "opacity-40"}`} />
         <div>
@@ -536,7 +534,7 @@ function OceanItemModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-8 backdrop-blur-sm" onClick={onClose}>
       <section
-        className="w-full max-w-lg rounded-2xl border border-white/10 bg-slate-950 p-6 shadow-2xl shadow-cyan-950/40"
+        className="w-full max-w-lg rounded-lg border border-white/10 bg-slate-950 p-6 shadow-2xl shadow-cyan-950/40"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
@@ -584,7 +582,7 @@ function OceanItemModal({
 
 function Detail({ label, value, className = "" }: { label: string; value: string; className?: string }) {
   return (
-    <div className={`rounded-xl border border-white/10 bg-white/5 p-4 ${className}`}>
+    <div className={`rounded-md border border-white/10 bg-white/5 p-4 ${className}`}>
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
       <p className="mt-1 text-sm text-slate-100">{value}</p>
     </div>

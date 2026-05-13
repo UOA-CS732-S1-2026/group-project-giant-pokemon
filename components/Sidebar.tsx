@@ -3,48 +3,42 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  HomeIcon,
-  FlagIcon,
-  CheckCircleIcon,
-  CalendarDaysIcon,
-  SparklesIcon,
-  UserCircleIcon,
-  ClockIcon,
-} from "@heroicons/react/24/outline";
+  CalendarDays,
+  CircleUserRound,
+  Clock3,
+  Flag,
+  Home,
+  ListChecks,
+  LogOut,
+  Sparkles,
+} from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
 
   const navItems = [
-    { name: "Profile", href: "/profile", icon: UserCircleIcon },
-    { name: "Goals", href: "/goals", icon: FlagIcon },
-    { name: "Tasks", href: "/tasks", icon: CheckCircleIcon },
-    { name: "Schedule", href: "/schedule", icon: CalendarDaysIcon },
-    { name: "Timetable", href: "/timetable", icon: ClockIcon },  // ← 新增
-    { name: "Ocean", href: "/productivity-ocean", icon: SparklesIcon },
-    { name: "Dashboard", href: "/dashboard", icon: HomeIcon },
+    { name: "Dashboard", href: "/dashboard", icon: Home },
+    { name: "Profile", href: "/profile", icon: CircleUserRound },
+    { name: "Goals", href: "/goals", icon: Flag },
+    { name: "Tasks", href: "/tasks", icon: ListChecks },
+    { name: "Schedule", href: "/schedule", icon: CalendarDays },
+    { name: "Timetable", href: "/timetable", icon: Clock3 },
+    { name: "Ocean", href: "/productivity-ocean", icon: Sparkles },
   ];
 
   return (
-    <aside className="
-      w-72 
-      bg-gradient-to-b from-[#1a2b6d] via-[#0f1a4a] to-[#0a1138]
-      border-r border-blue-500/20
-      shadow-xl
-      p-8 
-      flex flex-col gap-8
-      text-white
-    ">
-      {/* LOGO */}
-      <h1 className="text-3xl font-extrabold tracking-wide text-white">
-        TASKFLOW AI
-      </h1>
-      <p className="text-sm text-blue-200 -mt-4">
-        Goal‑Driven AI Scheduling Assistant
-      </p>
+    <aside className="flex h-fit flex-col rounded-lg border border-white/10 bg-slate-950/55 p-5 text-white shadow-2xl shadow-blue-950/30 backdrop-blur-xl lg:sticky lg:top-5 lg:min-h-[calc(100vh-2.5rem)]">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-500 shadow-lg shadow-blue-500/30">
+          <Sparkles className="h-5 w-5" />
+        </div>
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight text-white">Taskflow</h1>
+          <p className="text-xs text-blue-200">AI scheduling console</p>
+        </div>
+      </div>
 
-      {/* NAVIGATION */}
-      <nav className="flex flex-col gap-4 font-medium text-gray-300">
+      <nav className="mt-8 grid gap-2">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
           const Icon = item.icon;
@@ -52,37 +46,33 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`
-                flex items-center gap-3 transition rounded-lg px-2 py-1.5
-                ${isActive 
-                  ? "bg-blue-500/20 text-blue-300" 
-                  : "hover:text-blue-400 hover:bg-blue-500/10"
+              className={`flex items-center gap-3 rounded-md border px-3 py-3 text-sm font-medium transition ${
+                isActive
+                  ? "border-blue-300/30 bg-blue-500/20 text-white shadow-lg shadow-blue-950/20"
+                  : "border-transparent text-slate-300 hover:border-white/10 hover:bg-white/5 hover:text-white"
                 }
               `}
             >
-              <Icon className="w-5 h-5" /> {item.name}
+              <Icon className="h-4 w-4" /> {item.name}
             </Link>
           );
         })}
       </nav>
 
-      {/* LOGOUT BUTTON */}
+      <div className="mt-8 rounded-md border border-cyan-300/20 bg-cyan-300/10 p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">Today</p>
+        <p className="mt-2 text-2xl font-semibold">Focus</p>
+        <p className="mt-1 text-sm leading-5 text-cyan-50/75">Plan, execute, and keep the day visible.</p>
+      </div>
+
       <button
         onClick={async () => {
           await fetch("/api/auth/logout", { method: "POST" });
           window.location.href = "/";
         }}
-        className="
-          mt-auto 
-          bg-blue-600 
-          text-white 
-          py-2 
-          rounded-lg 
-          hover:bg-blue-700 
-          transition 
-          font-medium
-        "
+        className="mt-auto inline-flex items-center justify-center gap-2 rounded-md border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-950/20 transition hover:border-blue-200/50 hover:bg-blue-400/10"
       >
+        <LogOut className="h-4 w-4" />
         Logout
       </button>
     </aside>

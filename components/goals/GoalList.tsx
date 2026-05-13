@@ -22,7 +22,7 @@ export default function GoalList({
 }: GoalListProps) {
   if (fetching) {
     return (
-      <p className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-300">
+      <p className="rounded-lg border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-300">
         Loading goals...
       </p>
     );
@@ -30,7 +30,7 @@ export default function GoalList({
 
   if (goals.length === 0) {
     return (
-      <p className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-300">
+      <p className="rounded-lg border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-300">
         No goals yet. Start by creating a new goal!
       </p>
     );
@@ -41,7 +41,7 @@ export default function GoalList({
       {goals.map((goal) => (
         <li
           key={goal.id}
-          className="rounded-3xl border border-white/10 bg-white/10 p-5 shadow-lg shadow-blue-950/20 backdrop-blur"
+          className="rounded-lg border border-white/10 bg-slate-950/55 p-5 shadow-2xl shadow-blue-950/20 backdrop-blur-xl"
         >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -54,7 +54,7 @@ export default function GoalList({
             </div>
 
             <span
-              className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[goal.status]}`}
+              className={`w-fit whitespace-nowrap rounded-sm border border-white/10 px-2 py-1 text-xs font-semibold ${statusStyles[goal.status]}`}
             >
               {goal.status}
             </span>
@@ -78,14 +78,14 @@ export default function GoalList({
           <div className="mt-5 flex flex-wrap gap-2">
             <button
               type="button"
-              className="rounded-xl border border-blue-300/30 px-3 py-2 text-sm font-semibold text-blue-100 transition hover:border-blue-200 hover:bg-blue-500/20"
+              className="rounded-md border border-blue-300/30 bg-blue-500/20 px-3 py-2 text-sm font-semibold text-blue-100 transition hover:border-blue-200 hover:bg-blue-500/30"
               onClick={() => onEdit(goal)}
             >
               Edit
             </button>
             <button
               type="button"
-              className="rounded-xl border border-red-300/30 px-3 py-2 text-sm font-semibold text-red-100 transition hover:border-red-200 hover:bg-red-500/20"
+              className="rounded-md border border-red-300/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100 transition hover:border-red-200 hover:bg-red-500/20"
               onClick={() => {
                 if (confirm("Are you sure you want to delete this goal?")) {
                   onDelete(goal.id);

@@ -11,19 +11,15 @@ import type {
     EngineOccupiedBlock,
     MockScheduleEngineResponse,
     ScheduleGenerationMode,
-    ScheduleMetaItem,
-    ScheduleReasoningItem,
+    ScheduleTaskItem,
     ScheduleWindowConfig,
     SchedulableTask,
 } from "@/lib/scheduleEngine/types";
 import type { ScheduleBlockAPI } from "@/types/schedule";
 
-const DEFAULT_OVERFLOW_END_TIME = "22:00";
-
 const defaultWindow: ScheduleWindowConfig = {
     normalStartTime: DEFAULT_START_TIME,
     normalEndTime: DEFAULT_END_TIME,
-    overflowEndTime: DEFAULT_OVERFLOW_END_TIME,
 };
 
 export type MockScheduleEngineInput = {
@@ -55,22 +51,17 @@ export function createMockScheduleEngineResponse({
     };
 
     if (
-        !hasValidTimeRange(resolvedWindow.normalStartTime, resolvedWindow.normalEndTime) ||
-        !hasValidTimeRange(resolvedWindow.normalEndTime, resolvedWindow.overflowEndTime)
+        !hasValidTimeRange(resolvedWindow.normalStartTime, resolvedWindow.normalEndTime)
     ) {
         throw new Error("Mock schedule engine received an invalid schedule window.");
     }
 
     const normalStart = timeToMinutes(resolvedWindow.normalStartTime);
     const normalEnd = timeToMinutes(resolvedWindow.normalEndTime);
-    const overflowEnd = timeToMinutes(resolvedWindow.overflowEndTime);
     const occupiedRanges = toOccupiedRanges(occupiedBlocks);
     const scheduledBlocks: ScheduleBlockAPI[] = [];
-    const scheduledReasoning: ScheduleReasoningItem[] = [];
-    const overflow: ScheduleMetaItem[] = [];
-    const unscheduled: ScheduleMetaItem[] = [];
+    const unscheduled: ScheduleTaskItem[] = [];
     let cursor = normalStart;
-    let overflowCursor = normalEnd;
 
     for (const task of tasks) {
         const duration = task.estimatedMinutes;
@@ -87,59 +78,12 @@ export function createMockScheduleEngineResponse({
             scheduledBlocks.push(block);
             cursor = timeToMinutes(block.endTime);
 
-            if (mode === "ai") {
-                scheduledReasoning.push({
-                    taskId: task.id,
-                    title: task.title,
-                    reasoning: "Mock AI reasoning: task was scheduled in the normal work window.",
-                });
-            }
-
-            continue;
-        }
-
-        const mustCompleteToday = isMustCompleteToday(task, date);
-
-        if (!mustCompleteToday) {
-            unscheduled.push({
-                taskId: task.id,
-                title: task.title,
-                reason: "Task could not fit before 17:00 and is not due on or before the schedule date.",
-            });
-            continue;
-        }
-
-        if (overflowCursor + duration <= overflowEnd) {
-            const block = createBlock({
-                userId,
-                date,
-                task,
-                startMinutes: overflowCursor,
-                duration,
-            });
-            scheduledBlocks.push(block);
-            overflowCursor = timeToMinutes(block.endTime);
-            overflow.push({
-                taskId: task.id,
-                title: task.title,
-                reason: "Task is due on or before the schedule date, so it was placed after 17:00.",
-            });
-
-            if (mode === "ai") {
-                scheduledReasoning.push({
-                    taskId: task.id,
-                    title: task.title,
-                    reasoning: "Mock AI reasoning: task was scheduled in overflow because it must be completed today.",
-                });
-            }
-
             continue;
         }
 
         unscheduled.push({
             taskId: task.id,
             title: task.title,
-            reason: "Task must be completed today, but it cannot fit before the 22:00 overflow cap.",
         });
     }
 
@@ -151,8 +95,11 @@ export function createMockScheduleEngineResponse({
         meta: {
             requestedMode: mode,
             usedMode: mode,
-            scheduledReasoning,
-            overflow,
+            scheduleSummary:
+                mode === "ai"
+                    ? "Mock AI scheduled tasks into available slots within the normal window."
+                    : "Mock rule engine scheduled tasks into available slots.",
+            instructionDeviations: [],
             unscheduled,
         },
     };
@@ -187,10 +134,6 @@ function createBlock({
     };
 }
 
-function isMustCompleteToday(task: SchedulableTask, date: string) {
-    return Boolean(task.deadline && task.deadline <= date);
-}
-
 function toOccupiedRanges(blocks: EngineOccupiedBlock[]) {
     return blocks
         .filter((block) => block.status === "scheduled" || block.status === "completed")
@@ -222,4 +165,3 @@ function findNextAvailableStart(
 
     return nextStart + duration <= normalEnd ? nextStart : null;
 }
-

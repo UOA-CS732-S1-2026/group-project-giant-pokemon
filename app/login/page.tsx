@@ -2,6 +2,14 @@
 
 import { useState, FormEvent } from "react";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
+import { AppBackdrop } from "@/components/ui/foundation";
+
+type SignupErrors = {
+  name?: string;
+  email?: string;
+  password?: string;
+  confirmPassword?: string;
+};
 
 export default function AuthPage() {
   const [tab, setTab] = useState<"login" | "signup">("login");
@@ -22,11 +30,7 @@ export default function AuthPage() {
   const [serverError, setServerError] = useState("");
 
   // Signup validation errors
-  const [errors, setErrors] = useState({
-    email: "",
-    password: "",
-    confirmPassword: "",
-  });
+  const [errors, setErrors] = useState<SignupErrors>({});
 
   // Password strength
   const getPasswordStrength = () => {
@@ -44,7 +48,7 @@ export default function AuthPage() {
 
   // Signup validation
   const validateSignup = () => {
-    const newErrors: any = {};
+    const newErrors: SignupErrors = {};
 
     // NAME
     if (!name.trim()) {
@@ -147,30 +151,30 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#050b24] relative overflow-hidden px-6">
+    <AppBackdrop className="flex items-center justify-center px-6 py-10">
 
       {/* BLUE GLOW */}
-      <div className="absolute top-[20%] left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-blue-600/30 blur-[180px] rounded-full"></div>
+      <div className="absolute top-[20%] left-1/2 h-[700px] w-[700px] -translate-x-1/2 rounded-full bg-blue-600/20 blur-[180px]"></div>
 
       {/* CARD */}
-      <div className="relative z-10 w-full max-w-md rounded-3xl p-10 shadow-2xl border border-blue-500/20 bg-gradient-to-b from-[#1a2b6d] via-[#0f1a4a] to-[#0a1138]">
+      <div className="relative z-10 w-full max-w-md rounded-lg border border-white/10 bg-slate-950/65 p-8 shadow-2xl shadow-blue-950/30 backdrop-blur-xl">
 
         <h1 className="text-3xl font-bold text-center text-white mb-1">
-          TASKFLOW AI
+          Taskflow
         </h1>
 
-        <p className="text-center text-gray-300 mb-8 text-sm">
-          Smart Scheduling Assistant
+        <p className="mb-8 text-center text-sm text-blue-200">
+          AI scheduling console
         </p>
 
         {/* TABS */}
         <div className="flex gap-4 mb-8">
           <button
             onClick={() => setTab("login")}
-            className={`flex-1 py-2 rounded-lg font-medium border transition ${
+            className={`flex-1 rounded-md border py-2 font-medium transition ${
               tab === "login"
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-[#0d1538] text-gray-300 border-blue-500/30"
+                ? "border-blue-300/30 bg-blue-500/20 text-white"
+                : "border-white/10 bg-white/5 text-gray-300"
             }`}
           >
             Login
@@ -178,13 +182,13 @@ export default function AuthPage() {
 
           <button
             onClick={() => setTab("signup")}
-            className={`flex-1 py-2 rounded-lg font-medium border transition ${
+            className={`flex-1 rounded-md border py-2 font-medium transition ${
               tab === "signup"
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-[#0d1538] text-gray-300 border-blue-500/30"
+                ? "border-blue-300/30 bg-blue-500/20 text-white"
+                : "border-white/10 bg-white/5 text-gray-300"
             }`}
           >
-            New User
+            Sign Up
           </button>
         </div>
 
@@ -197,7 +201,7 @@ export default function AuthPage() {
               <input
                 type="email"
                 placeholder="Enter your email"
-                className="w-full bg-[#0d1538] text-white border border-blue-500/30 rounded-lg px-3 py-2 mt-1"
+                className="mt-1 w-full rounded-md border border-white/10 bg-slate-900/70 px-3 py-2 text-white outline-none focus:border-blue-300/60 focus:ring-2 focus:ring-blue-500/25"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -209,7 +213,7 @@ export default function AuthPage() {
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
-                  className="w-full bg-[#0d1538] text-white border border-blue-500/30 rounded-lg px-3 py-2 pr-10 mt-1"
+                  className="mt-1 w-full rounded-md border border-white/10 bg-slate-900/70 px-3 py-2 pr-10 text-white outline-none focus:border-blue-300/60 focus:ring-2 focus:ring-blue-500/25"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -228,7 +232,7 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-medium"
+              className="w-full rounded-md border border-blue-300/30 bg-blue-500/20 py-2 font-medium text-blue-50 transition hover:border-blue-200/60 hover:bg-blue-500/30 disabled:opacity-50"
             >
               {loading ? "Logging in..." : "Login"}
             </button>
@@ -244,10 +248,13 @@ export default function AuthPage() {
               <input
                 type="text"
                 placeholder="Enter your name"
-                className="w-full bg-[#0d1538] text-white border border-blue-500/30 rounded-lg px-3 py-2 mt-1"
+                className={`mt-1 w-full rounded-md border bg-slate-900/70 px-3 py-2 text-white outline-none focus:border-blue-300/60 focus:ring-2 focus:ring-blue-500/25 ${
+                  errors.name ? "border-red-500 bg-red-900/30" : "border-white/10"
+                }`}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
+              {errors.name && <p className="mt-1 text-sm text-red-400">{errors.name}</p>}
             </div>
 
             <div>
@@ -255,7 +262,7 @@ export default function AuthPage() {
               <input
                 type="text"
                 placeholder="Enter your email"
-                className={`w-full bg-[#0d1538] text-white border rounded-lg px-3 py-2 mt-1 ${
+                className={`mt-1 w-full rounded-md border bg-slate-900/70 px-3 py-2 text-white outline-none focus:border-blue-300/60 focus:ring-2 focus:ring-blue-500/25 ${
                   errors.email ? "border-red-500 bg-red-900/30" : "border-blue-500/30"
                 }`}
                 value={email}
@@ -270,8 +277,8 @@ export default function AuthPage() {
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
-                  className={`w-full bg-[#0d1538] text-white border rounded-lg px-3 py-2 pr-10 mt-1 ${
-                    errors.password ? "border-red-500 bg-red-900/30" : "border-blue-500/30"
+                  className={`mt-1 w-full rounded-md border bg-slate-900/70 px-3 py-2 pr-10 text-white outline-none focus:border-blue-300/60 focus:ring-2 focus:ring-blue-500/25 ${
+                    errors.password ? "border-red-500 bg-red-900/30" : "border-white/10"
                   }`}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -307,9 +314,9 @@ export default function AuthPage() {
               <div className="relative">
                 <input
                   type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Re-enter your password"
-                  className={`w-full bg-[#0d1538] text-white border rounded-lg px-3 py-2 pr-10 mt-1 ${
-                    errors.confirmPassword ? "border-red-500 bg-red-900/30" : "border-blue-500/30"
+                  placeholder="Confirm your password"
+                  className={`mt-1 w-full rounded-md border bg-slate-900/70 px-3 py-2 pr-10 text-white outline-none focus:border-blue-300/60 focus:ring-2 focus:ring-blue-500/25 ${
+                    errors.confirmPassword ? "border-red-500 bg-red-900/30" : "border-white/10"
                   }`}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -333,9 +340,9 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-medium"
+              className="w-full rounded-md border border-blue-300/30 bg-blue-500/20 py-2 font-medium text-blue-50 transition hover:border-blue-200/60 hover:bg-blue-500/30 disabled:opacity-50"
             >
-              {loading ? "Creating account..." : "Sign Up"}
+              {loading ? "Creating account..." : "Create account"}
             </button>
           </form>
         )}
@@ -354,6 +361,6 @@ export default function AuthPage() {
           100% { transform: translateX(0); }
         }
       `}</style>
-    </div>
+    </AppBackdrop>
   );
 }

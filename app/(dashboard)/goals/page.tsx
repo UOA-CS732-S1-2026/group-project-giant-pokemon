@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import GoalForm from "@/components/goals/GoalForm";
 import GoalList from "@/components/goals/GoalList";
+import { Button, PageHeader } from "@/components/ui/foundation";
 import type { Goal, GoalAPI, GoalStatus } from "@/types/goal";
 
 export default function GoalsPage() {
@@ -166,14 +167,17 @@ export default function GoalsPage() {
 
     // Render the component
     return (
-        <main className="min-h-screen bg-slate-950 bg-[radial-gradient(circle_at_top,#1d4ed8_0%,#0f172a_35%,#020617_100%)] p-4 text-white sm:p-6">
-            <div className="mx-auto max-w-7xl space-y-5">
-                <section className="rounded-3xl border border-white/10 bg-white/10 p-6 shadow-lg shadow-blue-950/20 backdrop-blur">
-                    <h1 className="text-3xl font-bold text-white">Goal Management</h1>
-                    <p className="mt-2 max-w-3xl text-slate-300">
-                        Break long-term ambitions into manageable goals and keep progress visible.
-                    </p>
-                </section>
+        <>
+            <PageHeader
+                label="Goals"
+                title="Goal Management"
+                description="Break long-term ambitions into manageable goals and keep progress visible."
+                actions={
+                    <Button type="button" onClick={handleOpenCreateForm}>
+                        Add New Goal
+                    </Button>
+                }
+            />
 
                 <section className="space-y-4">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -183,13 +187,6 @@ export default function GoalsPage() {
                                 Review, update, or clear goals as your plan changes.
                             </p>
                         </div>
-                        <button
-                            type="button"
-                            className="rounded-2xl bg-blue-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:bg-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 focus:ring-offset-slate-950"
-                            onClick={handleOpenCreateForm}
-                        >
-                            Add New Goal
-                        </button>
                     </div>
                     <GoalList
                         goals={goals}
@@ -198,8 +195,6 @@ export default function GoalsPage() {
                         onDelete={handleDelete}
                     />
                 </section>
-            </div>
-
             {isFormOpen && (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-md"
@@ -213,10 +208,10 @@ export default function GoalsPage() {
                     }}
                 >
                     <div
-                        className="relative max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/10 bg-white/10 p-4 shadow-2xl shadow-blue-950/40 backdrop-blur-xl sm:p-6"
+                        className="relative max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto rounded-lg border border-white/10 bg-slate-950/80 p-4 shadow-2xl shadow-blue-950/40 backdrop-blur-xl sm:p-6"
                         onClick={(event) => event.stopPropagation()}
                     >
-                        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.22),transparent_42%)]" />
+                        <div className="pointer-events-none absolute inset-0 rounded-lg bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.22),transparent_42%)]" />
                         <div className="relative">
                         <div className="mb-5 flex items-start justify-between gap-4">
                             <div>
@@ -229,7 +224,7 @@ export default function GoalsPage() {
                             </div>
                             <button
                                 type="button"
-                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-blue-300/30 text-xl leading-none text-blue-100 transition hover:border-blue-200 hover:bg-blue-500/20 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 focus:ring-offset-slate-950"
+                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-blue-300/30 text-xl leading-none text-blue-100 transition hover:border-blue-200 hover:bg-blue-500/20 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 focus:ring-offset-slate-950"
                                 onClick={handleCloseForm}
                                 aria-label="Close goal form"
                             >
@@ -256,6 +251,6 @@ export default function GoalsPage() {
                     </div>
                 </div>
             )}
-        </main>
+        </>
     );
 }

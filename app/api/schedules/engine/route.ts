@@ -197,8 +197,6 @@ function parseWindow(value: unknown): Partial<ScheduleWindowConfig> | undefined 
             typeof value.normalStartTime === "string" ? value.normalStartTime : undefined,
         normalEndTime:
             typeof value.normalEndTime === "string" ? value.normalEndTime : undefined,
-        overflowEndTime:
-            typeof value.overflowEndTime === "string" ? value.overflowEndTime : undefined,
     };
 }
 
