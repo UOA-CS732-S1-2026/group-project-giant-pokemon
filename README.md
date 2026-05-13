@@ -277,7 +277,7 @@ TaskFlow AI is deployed using **Vercel** for the Next.js application and **Mongo
 
 Live deployment:
 
-https://group-project-giant-pokemon-git-main-amyascys-projects.vercel.app/
+https://group-project-giant-pokemon.vercel.app/
 
 The deployment is configured as follows:
 
