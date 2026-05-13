@@ -9,3 +9,18 @@ node_modules
 .env.*
 !.env.example
 !.env.test
+.next
+
+# Build and cache output
+dist
+build
+out
+coverage
+tsconfig.tsbuildinfo
+.turbo
+.vercel
+
+# Package manager logs
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*

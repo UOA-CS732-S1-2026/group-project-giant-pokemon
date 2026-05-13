@@ -1,17 +1,84 @@
-# CS732 project - Team Giant Pokemon
+# TaskFlow AI
 
-Welcome to the CS732 project. We look forward to seeing the amazing things you create this semester! This is your team's repository.
+## 📋 What's New — 12th May 2026
 
-Your team members are:
-- Khushba Ahmed _(kahm047@aucklanduni.ac.nz)_
-- Shardul Mangesh Anagal _(sana691@aucklanduni.ac.nz)_
-- Sreelakshmi Gireesh _(sgir748@aucklanduni.ac.nz)_
-- Harsh Kumar _(hkmu884@aucklanduni.ac.nz)_
-- Marvin Xu _(zxu734@aucklanduni.ac.nz)_
-- Chao Yao _(cyao907@aucklanduni.ac.nz)_
+*AI features (task parser, free time suggestions, user preference alignment) updated by Marvin Xu*
 
-You have complete control over how you run this repo. All your members will have admin access. The only thing setup by default is branch protections on `main`, requiring a PR with at least one code reviewer to modify `main` rather than direct pushes.
+### 🤖 AI-Powered Natural Language Task Parser
 
-Please use good version control practices, such as feature branching, both to make it easier for markers to see your group's history and to lower the chances of you tripping over each other during development
+- **Create tasks using plain English** — just describe what you need to do, AI handles the rest
+- Example: *"Meeting at 10am, lunch at 12:30pm, pick up kids at 4pm, football at 6pm"*
+- AI automatically extracts: title, priority, estimated duration, deadline, scheduled date & time
+- Preview before saving — review then save with one click
+- Page: `/tasks` (AI Quick Add section)
 
-![](./Giant%20Pokemon.png)
+### 🧠 AI-Powered Free Time Suggestions
+
+- **Intelligent activity suggestions** for every free slot in your timetable
+- Categories: rest, exercise, learning, social, creative, mindfulness
+- **Breaks long free slots into multiple smaller activities** (e.g., study → break → exercise → break → review)
+- One-click "Add to Timetable" — suggested activities are instantly saved as scheduled tasks with:
+  - **Title** (activity description)
+  - **Start time** (matches the free slot start time)
+  - **Duration** (intelligently calculated based on activity length)
+  - **End time** (automatically derived from start time + duration)
+- Page: `/timetable` (Free Time Suggestions section)
+
+### 📝 Task Management — Enhanced with Time & Duration
+
+- **Schedule tasks with specific times** — each task now supports:
+  - `scheduledDate` — pick the exact date for your task
+  - `scheduledStartTime` — set a precise start time (e.g., 10:00 AM)
+  - `estimatedMinutes` — duration of the task (1-480 minutes)
+- Tasks with scheduled time automatically appear in your Timetable at the correct position
+- Manual task creation form includes all time fields
+- Edit any task to modify its scheduled time or duration
+- Page: `/tasks`
+
+### 🎯 AI Suggestions Aligned with User Preferences
+
+- AI reads your **Planning Preferences** from your profile and personalizes every suggestion:
+  - **Working hours** — suggestions only within your preferred start/end time
+  - **Workload capacity** — won't overschedule if you prefer a lighter load
+  - **Focus style** — activity length matches Deep Work / Pomodoro / Short Bursts
+  - **Break preference** — inserts breaks of your preferred length
+  - **Main goal & active goals** — suggestions tie back to your goals
+- Page: `/profile` — set your preferences once, AI uses them everywhere
+
+### 📅 Timetable Module — Smart & Personalized
+
+- **Dynamic time range** — automatically adjusts to your preferred working hours
+- **Smart merged timeline** — free time slots are intelligently collapsed
+- **Daily progress bar** — track completed vs. scheduled tasks
+- Tasks with scheduled time appear exactly where you placed them
+- Page: `/timetable`
+
+## Docker
+
+Run the app and MongoDB together:
+
+```bash
+docker compose up --build
+```
+
+Then open http://localhost:3000.
+
+The Compose setup uses `docker.defaults.env` for non-secret defaults so the
+project can start without private API keys. To enable live AI calls locally,
+create `.env.docker` and add your private values:
+
+```env
+GEMINI_API_KEY=
+DEEPSEEK_API_KEY=
+JWT_SECRET=
+```
+
+`.env.docker` is ignored by Git. Do not commit real API keys.
+
+Useful commands:
+
+```bash
+docker compose down
+docker compose down -v
+docker compose logs -f app
+```
