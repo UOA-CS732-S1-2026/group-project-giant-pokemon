@@ -44,18 +44,7 @@ describe("generateAISchedule", () => {
                     text: JSON.stringify({
                         summary: "Warm-up admin is placed first, followed by deeper work.",
                         instructionDeviations: [],
-                        blocks: [
-                            {
-                                taskId: "warmup",
-                                startTime: "09:00",
-                                endTime: "09:30",
-                            },
-                            {
-                                taskId: "hard",
-                                startTime: "09:30",
-                                endTime: "10:30",
-                            },
-                        ],
+                        sequence: ["warmup", "hard"],
                         unscheduled: [],
                     }),
                 }),
@@ -110,6 +99,61 @@ describe("generateAISchedule", () => {
         });
     });
 
+    it("builds schedule blocks locally from AI sequence around occupied blocks", async () => {
+        const result = await generateAISchedule(
+            {
+                date: "2026-05-05",
+                tasks: [
+                    {
+                        ...baseTask,
+                        id: "deep",
+                        title: "Deep work",
+                        estimatedMinutes: 60,
+                    },
+                    {
+                        ...baseTask,
+                        id: "admin",
+                        title: "Admin",
+                        estimatedMinutes: 30,
+                    },
+                ],
+                occupiedBlocks: [
+                    {
+                        title: "Fixed meeting",
+                        startTime: "09:30",
+                        endTime: "10:30",
+                        status: "completed",
+                    },
+                ],
+            },
+            {
+                runPrompt: async () => ({
+                    provider: "gemini",
+                    model: "test-model",
+                    text: JSON.stringify({
+                        summary: "Deep work first, then admin.",
+                        instructionDeviations: [],
+                        sequence: ["deep", "admin"],
+                        unscheduled: [],
+                    }),
+                }),
+            }
+        );
+
+        expect(result.blocks).toMatchObject([
+            {
+                taskId: "deep",
+                startTime: "10:30",
+                endTime: "11:30",
+            },
+            {
+                taskId: "admin",
+                startTime: "11:30",
+                endTime: "12:00",
+            },
+        ]);
+    });
+
     it("falls back to rule mode when AI output fails validation", async () => {
         const result = await generateAISchedule(
             {
@@ -130,13 +174,7 @@ describe("generateAISchedule", () => {
                     text: JSON.stringify({
                         summary: "Invalid schedule with a shortened task.",
                         instructionDeviations: [],
-                        blocks: [
-                            {
-                                taskId: "task-1",
-                                startTime: "09:00",
-                                endTime: "09:30",
-                            },
-                        ],
+                        sequence: [],
                         unscheduled: [],
                     }),
                 }),
@@ -159,7 +197,7 @@ describe("generateAISchedule", () => {
 });
 
 describe("validateAIOutput", () => {
-    it("rejects overlap with occupied blocks", () => {
+    it("rejects tasks marked as both sequenced and unscheduled", () => {
         const tasks = [
             {
                 ...baseTask,
@@ -172,31 +210,17 @@ describe("validateAIOutput", () => {
             validateAIOutput({
                 date: "2026-05-05",
                 tasks,
-                occupiedBlocks: [
-                    {
-                        title: "Fixed block",
-                        startTime: "09:30",
-                        endTime: "10:30",
-                        status: "completed",
-                    },
-                ],
                 output: {
-                    summary: "This overlaps occupied time.",
+                    summary: "The task should be scheduled.",
                     instructionDeviations: [],
-                    blocks: [
-                        {
-                            taskId: "task-1",
-                            startTime: "09:00",
-                            endTime: "10:00",
-                        },
-                    ],
-                    unscheduled: [],
+                    sequence: ["task-1"],
+                    unscheduled: [{ taskId: "task-1" }],
                 },
             })
-        ).toThrow("overlaps");
+        ).toThrow("both sequenced and unscheduled");
     });
 
-    it("rejects tasks scheduled after the normal window", () => {
+    it("marks sequenced tasks unscheduled when they do not fit the normal window", () => {
         const tasks = [
             {
                 ...baseTask,
@@ -207,24 +231,28 @@ describe("validateAIOutput", () => {
             },
         ];
 
-        expect(() =>
-            validateAIOutput({
-                date: "2026-05-05",
-                tasks,
-                output: {
-                    summary: "The due task is incorrectly placed after the normal window.",
-                    instructionDeviations: [],
-                    blocks: [
-                        {
-                            taskId: "due-today",
-                            startTime: "17:00",
-                            endTime: "18:00",
-                        },
-                    ],
-                    unscheduled: [],
-                },
-            })
-        ).toThrow("after normal window");
+        const result = validateAIOutput({
+            date: "2026-05-05",
+            tasks,
+            window: {
+                normalStartTime: "09:00",
+                normalEndTime: "09:30",
+            },
+            output: {
+                summary: "The due task is valuable but cannot fit.",
+                instructionDeviations: [],
+                sequence: ["due-today"],
+                unscheduled: [],
+            },
+        });
+
+        expect(result.blocks).toEqual([]);
+        expect(result.meta.unscheduled).toEqual([
+            {
+                taskId: "due-today",
+                title: "Due today",
+            },
+        ]);
     });
 
     it("rejects unaccounted tasks", () => {
@@ -242,7 +270,7 @@ describe("validateAIOutput", () => {
                 output: {
                     summary: "No tasks scheduled.",
                     instructionDeviations: [],
-                    blocks: [],
+                    sequence: [],
                     unscheduled: [],
                 },
             })

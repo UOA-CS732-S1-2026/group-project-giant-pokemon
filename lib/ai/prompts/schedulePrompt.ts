@@ -5,7 +5,7 @@ import type {
     SchedulableTask,
 } from "@/lib/scheduleEngine/types";
 
-export const AI_SCHEDULE_PROMPT_VERSION = "schedule-ai-v4";
+export const AI_SCHEDULE_PROMPT_VERSION = "schedule-ai-v5";
 
 export type AISchedulePromptInput = {
     date: string;
@@ -51,7 +51,7 @@ export function buildAISchedulePrompt({
         `Prompt version: ${AI_SCHEDULE_PROMPT_VERSION}`,
         "Return valid JSON only.",
         "",
-        "Create a human-realistic plan using task content, cognitive load, batching, urgency, and user preference; do not merely sort by priority/deadline.",
+        "Rank tasks for a human-realistic daily plan using task content, cognitive load, batching, urgency, and user preference; do not merely sort by priority/deadline.",
         "",
         "Scheduling logic:",
         "- Protect long uninterrupted focus time for deep/creative/analytical work.",
@@ -59,9 +59,10 @@ export function buildAISchedulePrompt({
         "- Use small easy tasks as warm-up only when helpful; do not scatter them through deep work.",
         "- Prefer earlier deadlines and higher priority, but override ordering when content, energy, or batching makes a better day.",
         "- Keep the plan resilient: avoid overpacking and leave natural gaps around occupied blocks.",
-        "- If capacity is tight, schedule the highest-value work and mark lower-value work unscheduled.",
+        "- If capacity is tight, include the highest-value work first and mark lower-value work unscheduled.",
         "",
-        "Hard constraints: use only task ids; keep durations unchanged; no overlaps; avoid occupied blocks; HH:mm times; schedule only inside the normal window.",
+        "Do not calculate full schedule blocks or end times. Local code will place tasks into available time slots using task durations.",
+        "Hard constraints: use only task ids; return each task at most once across sequence and unscheduled; do not explain unscheduled tasks.",
         "",
         "Summary: briefly describe the overall schedule strategy. If any user preference cannot be followed, add concise explanations in instructionDeviations; otherwise use []. Do not explain unscheduled tasks.",
         "",
@@ -78,13 +79,7 @@ export function buildAISchedulePrompt({
             instructionDeviations: [
                 "Only include when the user preference could not be followed.",
             ],
-            blocks: [
-                {
-                    taskId: "task-id",
-                    startTime: "09:00",
-                    endTime: "10:00",
-                },
-            ],
+            sequence: ["task-id-1", "task-id-2"],
             unscheduled: [
                 {
                     taskId: "task-id",

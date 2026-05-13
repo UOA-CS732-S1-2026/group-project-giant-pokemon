@@ -5,8 +5,7 @@ import type { AIEnv } from "@/lib/ai/config";
 import type { AIResult, FetchFunction } from "@/lib/ai/types";
 import {
     DEMO_USER_ID,
-    hasValidTimeRange,
-    isTimeString,
+    minutesToTime,
     timeToMinutes,
 } from "@/lib/scheduler";
 import {
@@ -53,11 +52,7 @@ type AIEngineOptions = {
 type AIScheduleResponse = {
     summary?: unknown;
     instructionDeviations?: unknown;
-    blocks?: Array<{
-        taskId?: unknown;
-        startTime?: unknown;
-        endTime?: unknown;
-    }>;
+    sequence?: unknown;
     unscheduled?: Array<{
         taskId?: unknown;
     }>;
@@ -121,92 +116,49 @@ export function validateAIOutput({
     const instructionDeviations = normalizeInstructionDeviations(
         output.instructionDeviations
     );
-    const blocks = assertArray(output.blocks, "blocks");
     const unscheduled = normalizeUnscheduledItems(output.unscheduled, tasksById);
+    const sequence = normalizeSequence(output.sequence, tasksById);
     const occupiedRanges = toOccupiedRanges(occupiedBlocks);
-    const generatedBlocks: EngineGeneratedBlock[] = [];
-    const scheduledTaskIds = new Set<string>();
     const unscheduledTaskIds = new Set(unscheduled.map((item) => item.taskId));
+    const sequenceTaskIds = new Set<string>();
+    const tasksToSchedule: SchedulableTask[] = [];
 
-    for (const block of blocks) {
-        if (!isPlainObject(block) || typeof block.taskId !== "string") {
-            throw new Error("AI scheduled blocks must include taskId.");
+    for (const taskId of sequence) {
+        if (unscheduledTaskIds.has(taskId)) {
+            throw new Error(`AI marked task ${taskId} as both sequenced and unscheduled.`);
         }
 
-        const task = tasksById.get(block.taskId);
-
-        if (!task) {
-            throw new Error(`AI scheduled unknown task id: ${block.taskId}.`);
-        }
-
-        if (scheduledTaskIds.has(task.id)) {
-            throw new Error(`AI scheduled task more than once: ${task.id}.`);
-        }
-
-        if (!isTimeString(block.startTime) || !isTimeString(block.endTime)) {
-            throw new Error(`AI scheduled task ${task.id} with invalid time format.`);
-        }
-
-        if (!hasValidTimeRange(block.startTime, block.endTime)) {
-            throw new Error(`AI scheduled task ${task.id} with invalid time range.`);
-        }
-
-        const start = timeToMinutes(block.startTime);
-        const end = timeToMinutes(block.endTime);
-
-        if (end - start !== task.estimatedMinutes) {
-            throw new Error(`AI changed duration for task ${task.id}.`);
-        }
-
-        if (end > normalEnd) {
-            throw new Error(`AI scheduled task ${task.id} after normal window.`);
-        }
-
-        if (start < normalStart) {
-            throw new Error(`AI scheduled task ${task.id} before normal window.`);
-        }
-
-        generatedBlocks.push({
-            userId,
-            taskId: task.id,
-            title: task.title,
-            date: `${date}T00:00:00.000Z`,
-            startTime: block.startTime,
-            endTime: block.endTime,
-            status: "scheduled",
-        });
-        scheduledTaskIds.add(task.id);
-    }
-
-    const generatedRanges = toGeneratedRanges(generatedBlocks);
-
-    if (hasOverlap(generatedRanges) || overlapsAny(generatedRanges, occupiedRanges)) {
-        throw new Error("AI schedule overlaps occupied or generated blocks.");
+        sequenceTaskIds.add(taskId);
+        tasksToSchedule.push(tasksById.get(taskId)!);
     }
 
     for (const task of tasks) {
-        const scheduled = scheduledTaskIds.has(task.id);
+        const sequenced = sequenceTaskIds.has(task.id);
         const markedUnscheduled = unscheduledTaskIds.has(task.id);
 
-        if (scheduled && markedUnscheduled) {
-            throw new Error(`AI marked task ${task.id} as both scheduled and unscheduled.`);
-        }
-
-        if (!scheduled && !markedUnscheduled) {
+        if (!sequenced && !markedUnscheduled) {
             throw new Error(`AI did not account for task ${task.id}.`);
         }
     }
 
-    generatedBlocks.sort((first, second) => first.startTime.localeCompare(second.startTime));
+    const scheduleBuild = buildBlocksFromSequence({
+        date,
+        userId,
+        tasks: tasksToSchedule,
+        unscheduled,
+        occupiedRanges,
+        normalStart,
+        normalEnd,
+    });
 
     return {
-        blocks: generatedBlocks,
+        blocks: scheduleBuild.blocks,
         meta: {
             requestedMode: "ai",
             usedMode: "ai",
             scheduleSummary,
             instructionDeviations,
-            unscheduled,
+            unscheduled: scheduleBuild.unscheduled,
         },
     };
 }
@@ -302,6 +254,91 @@ function normalizeUnscheduledItems(
     });
 }
 
+function normalizeSequence(
+    value: AIScheduleResponse["sequence"],
+    tasksById: Map<string, SchedulableTask>
+): string[] {
+    const seenTaskIds = new Set<string>();
+
+    return assertArray(value, "sequence").map((item) => {
+        if (typeof item !== "string") {
+            throw new Error("AI sequence items must be task ids.");
+        }
+
+        const task = tasksById.get(item);
+
+        if (!task) {
+            throw new Error(`AI sequence referenced unknown task id: ${item}.`);
+        }
+
+        if (seenTaskIds.has(task.id)) {
+            throw new Error(`AI returned duplicate sequence item for task ${task.id}.`);
+        }
+
+        seenTaskIds.add(task.id);
+
+        return task.id;
+    });
+}
+
+function buildBlocksFromSequence({
+    date,
+    userId,
+    tasks,
+    unscheduled,
+    occupiedRanges,
+    normalStart,
+    normalEnd,
+}: {
+    date: string;
+    userId: string;
+    tasks: SchedulableTask[];
+    unscheduled: ScheduleTaskItem[];
+    occupiedRanges: TimeRange[];
+    normalStart: number;
+    normalEnd: number;
+}) {
+    const blocks: EngineGeneratedBlock[] = [];
+    const resolvedUnscheduled = [...unscheduled];
+    let cursor = normalStart;
+
+    for (const task of tasks) {
+        const start = findNextAvailableStart({
+            cursor,
+            duration: task.estimatedMinutes,
+            windowStart: normalStart,
+            windowEnd: normalEnd,
+            occupiedRanges,
+        });
+
+        if (start === null) {
+            resolvedUnscheduled.push({
+                taskId: task.id,
+                title: task.title,
+            });
+            continue;
+        }
+
+        const end = start + task.estimatedMinutes;
+
+        blocks.push({
+            userId,
+            taskId: task.id,
+            title: task.title,
+            date: `${date}T00:00:00.000Z`,
+            startTime: minutesToTime(start),
+            endTime: minutesToTime(end),
+            status: "scheduled",
+        });
+        cursor = end;
+    }
+
+    return {
+        blocks,
+        unscheduled: resolvedUnscheduled,
+    };
+}
+
 function assertArray<T = unknown>(value: unknown, fieldName: string): T[] {
     if (!Array.isArray(value)) {
         throw new Error(`AI response must include ${fieldName} array.`);
@@ -325,29 +362,37 @@ function toOccupiedRanges(blocks: EngineOccupiedBlock[]): TimeRange[] {
         .sort((first, second) => first.start - second.start);
 }
 
-function toGeneratedRanges(blocks: EngineGeneratedBlock[]): TimeRange[] {
-    return blocks.map((block) => ({
-        start: timeToMinutes(block.startTime),
-        end: timeToMinutes(block.endTime),
-    }));
-}
+function findNextAvailableStart({
+    cursor,
+    duration,
+    windowStart,
+    windowEnd,
+    occupiedRanges,
+}: {
+    cursor: number;
+    duration: number;
+    windowStart: number;
+    windowEnd: number;
+    occupiedRanges: TimeRange[];
+}) {
+    let nextStart = Math.max(cursor, windowStart);
 
-function hasOverlap(ranges: TimeRange[]) {
-    const sortedRanges = [...ranges].sort((first, second) => first.start - second.start);
+    for (const range of occupiedRanges) {
+        if (range.end <= windowStart || range.start >= windowEnd) {
+            continue;
+        }
 
-    for (let index = 1; index < sortedRanges.length; index += 1) {
-        if (sortedRanges[index].start < sortedRanges[index - 1].end) {
-            return true;
+        const occupiedStart = Math.max(range.start, windowStart);
+        const occupiedEnd = Math.min(range.end, windowEnd);
+
+        if (nextStart + duration <= occupiedStart) {
+            return nextStart + duration <= windowEnd ? nextStart : null;
+        }
+
+        if (nextStart >= occupiedStart && nextStart < occupiedEnd) {
+            nextStart = occupiedEnd;
         }
     }
 
-    return false;
-}
-
-function overlapsAny(firstRanges: TimeRange[], secondRanges: TimeRange[]) {
-    return firstRanges.some((first) =>
-        secondRanges.some(
-            (second) => first.start < second.end && second.start < first.end
-        )
-    );
+    return nextStart + duration <= windowEnd ? nextStart : null;
 }

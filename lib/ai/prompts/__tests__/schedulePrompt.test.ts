@@ -46,7 +46,11 @@ describe("buildAISchedulePrompt", () => {
         expect(prompt).toContain("Fixed meeting");
         expect(prompt).toContain("do not merely sort by priority/deadline.");
         expect(prompt).toContain("instructionDeviations");
+        expect(prompt).toContain("sequence");
+        expect(prompt).toContain("Do not calculate full schedule blocks or end times.");
         expect(prompt).toContain("Do not explain unscheduled tasks.");
+        expect(prompt).not.toContain("startTime");
+        expect(prompt).not.toContain("endTime");
         expect(prompt).not.toContain("Rule baseline");
     });
 
