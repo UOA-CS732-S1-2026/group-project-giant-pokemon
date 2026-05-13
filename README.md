@@ -273,19 +273,21 @@ docker compose logs -f app
 
 ## Deployment
 
-Deployment link:
+TaskFlow AI is deployed using **Vercel** for the Next.js application and **MongoDB Atlas** for the production database.
 
-```txt
-Add deployed app URL here
-```
+Live deployment:
 
-Deployment checklist:
+https://group-project-giant-pokemon-git-main-amyascys-projects.vercel.app/
 
-- Configure `MONGODB_URI`.
-- Configure `JWT_SECRET`.
-- Configure AI provider API keys.
-- Run `npm run build`.
-- Confirm login, task creation, goal creation, schedule generation, and AI suggestions work on the deployed site.
+The deployment is configured as follows:
+
+- **Frontend and API hosting:** Vercel builds and hosts the Next.js app, including both App Router pages and API routes.
+- **Database:** MongoDB Atlas provides the hosted MongoDB database used by the deployed application.
+- **Environment variables:** Production secrets are configured in the Vercel project settings, including `MONGODB_URI`, `JWT_SECRET`, and AI provider API keys.
+- **Build command:** Vercel runs the standard production build with `npm run build`.
+- **Runtime:** After deployment, users can access authentication, task management, goal management, schedule generation, timetable views, and AI-assisted features through the hosted Vercel URL.
+
+This setup separates application hosting from persistent data storage, making the web app accessible online while keeping user, task, goal, and schedule data in a managed cloud database.
 
 ## Version Control and Collaboration
 
